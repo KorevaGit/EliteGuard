@@ -1,0 +1,42 @@
+name: EliteGuard
+options:
+  bundleIdPrefix: com.elite
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: AKH3FW2JK6
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  EliteGuard:
+    type: application
+    platform: iOS
+    sources: [EliteSIPConnect]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.elite.EliteGuard
+        PRODUCT_NAME: EliteGuard
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: EliteGuard
+        INFOPLIST_KEY_NSHumanReadableCopyright: © 2026 Элитный Сочи
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.business
+        INFOPLIST_KEY_NSCameraUsageDescription: Камера нужна, чтобы отсканировать QR-код на экране клиента EliteSIP.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+    info:
+      path: EliteSIPConnect/Resources/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.elite.EliteGuard.pair
+            CFBundleURLSchemes: [elitesip]
+        ITSAppUsesNonExemptEncryption: false
+        SparkBaseURL: https://spark.elitesochi.com
