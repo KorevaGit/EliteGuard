@@ -25,20 +25,17 @@ struct CreateWorkplaceView: View {
                     LabeledContent("Имя", value: user.fullName)
                     LabeledContent("Добавочный", value: user.callNumber.isEmpty ? "не указан" : user.callNumber)
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                 if user.callNumber.isEmpty {
                     Section {
                         Label("Без номера из Битрикса машина не сможет работать", systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                     }
-                    .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                 }
             } else {
                 Section("Имя Фамилия") {
                     TextField("Имя", text: $firstName)
                     TextField("Фамилия", text: $lastName)
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             }
 
             Section("Настройки") {
@@ -60,7 +57,6 @@ struct CreateWorkplaceView: View {
                     ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
                 }
             }
-            .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
 
             if user == nil {
                 Section("Дополнительные номера") {
@@ -78,7 +74,6 @@ struct CreateWorkplaceView: View {
                         }
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             }
 
             Section {
@@ -96,7 +91,6 @@ struct CreateWorkplaceView: View {
                                            extensionNumber.isEmpty || !extensionNumber.allSatisfy(\.isNumber) ||
                                            lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
             }
-            .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
         }
         .navigationTitle(user == nil ? "Ручной профиль" : "Новый сотрудник")
         .navigationBarTitleDisplayMode(.inline)

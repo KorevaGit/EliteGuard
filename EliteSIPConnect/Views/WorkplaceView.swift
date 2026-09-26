@@ -24,7 +24,6 @@ struct WorkplaceView: View {
                 } footer: {
                     Text("Правки в Spark уезжают на машины сотрудника сами — в течение 15 минут.")
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
 
                 Section {
                     Button("Изменить сотрудника", systemImage: "square.and.pencil") { editing = true }
@@ -35,7 +34,6 @@ struct WorkplaceView: View {
                         .disabled(pushing)
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
 
                 if let conflicts = detail.conflicts, !conflicts.isEmpty {
                     Section {
@@ -43,7 +41,6 @@ struct WorkplaceView: View {
                               systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                     }
-                    .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                 }
 
                 Section {
@@ -68,7 +65,6 @@ struct WorkplaceView: View {
                         Text("Отсканируйте QR на экране EliteSIP — машина получит номер и настройки сама.")
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
 
                 Section("Машины") {
                     if detail.machines.isEmpty {
@@ -87,7 +83,6 @@ struct WorkplaceView: View {
                         }
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
 
                 Section {
                     Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
@@ -105,7 +100,6 @@ struct WorkplaceView: View {
                         Text("Перед удалением отвяжите все машины пользователя.")
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             } else {
                 ProgressView().frame(maxWidth: .infinity)
             }
@@ -221,7 +215,6 @@ struct EditWorkplaceView: View {
                     TextField("Имя", text: $firstName)
                     TextField("Фамилия", text: $lastName)
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             } else {
                 Section {
                     LabeledContent("Имя", value: workplace.fullName)
@@ -231,7 +224,6 @@ struct EditWorkplaceView: View {
                 } footer: {
                     Text("Имя и номер берутся из Битрикса.")
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             }
             Section("Настройки") {
                 if workplace.bitrixUserId == 0 {
@@ -251,7 +243,6 @@ struct EditWorkplaceView: View {
                     ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
                 }
             }
-            .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             if workplace.bitrixUserId == 0 {
                 Section("Дополнительные номера") {
                     ForEach($lines) { $line in
@@ -268,7 +259,6 @@ struct EditWorkplaceView: View {
                         }
                     }
                 }
-                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
             }
         }
         .navigationTitle("Изменить сотрудника")

@@ -126,7 +126,6 @@ struct HomeView: View {
                         } footer: {
                             Text("Введите шесть цифр с экрана EliteSIP. После проверки выберите сотрудника для привязки.")
                         }
-                        .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                         if let numberError {
                             Text(numberError).foregroundStyle(.red)
                         }
