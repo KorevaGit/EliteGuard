@@ -99,6 +99,30 @@ struct WorkplaceView: View {
                                         }
                                         .font(.subheadline)
                                         .buttonStyle(.borderless)
+                                        .popover(
+                                            isPresented: Binding(
+                                                get: { revoking?.id == machine.id },
+                                                set: { if !$0 { revoking = nil } }),
+                                            attachmentAnchor: .point(.top),
+                                            arrowEdge: .bottom
+                                        ) {
+                                            VStack(alignment: .leading, spacing: 12) {
+                                                Text("Отвязать машину?").font(.headline)
+                                                Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» сбросится при следующей проверке — в течение 15 минут.")
+                                                    .foregroundStyle(.secondary)
+                                                HStack {
+                                                    Button("Отмена") { revoking = nil }
+                                                    Spacer()
+                                                    Button("Отвязать", role: .destructive) {
+                                                        revoking = nil
+                                                        Task { await revoke(machine) }
+                                                    }
+                                                }
+                                            }
+                                            .padding(20)
+                                            .frame(width: 310)
+                                            .presentationCompactAdaptation(.popover)
+                                        }
                                     }
                                 }
                             }
@@ -115,10 +139,23 @@ struct WorkplaceView: View {
                             }
                             .foregroundStyle(detail.machines.contains { $0.state != "revoked" } ? .gray : .red)
                             .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
-                            .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
-                                Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
-                            } message: {
-                                Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+                            .popover(isPresented: $confirmDelete, attachmentAnchor: .point(.top), arrowEdge: .bottom) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Удалить пользователя?").font(.headline)
+                                    Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+                                        .foregroundStyle(.secondary)
+                                    HStack {
+                                        Button("Отмена") { confirmDelete = false }
+                                        Spacer()
+                                        Button("Удалить", role: .destructive) {
+                                            confirmDelete = false
+                                            Task { await remove() }
+                                        }
+                                    }
+                                }
+                                .padding(20)
+                                .frame(width: 310)
+                                .presentationCompactAdaptation(.popover)
                             }
                         }
                     }
@@ -149,16 +186,6 @@ struct WorkplaceView: View {
                     }
                 }
             }
-        }
-        .confirmationDialog(
-            "Отвязать машину?",
-            isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
-            titleVisibility: .visible,
-            presenting: revoking
-        ) { machine in
-            Button("Отвязать", role: .destructive) { Task { await revoke(machine) } }
-        } message: { machine in
-            Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» сбросится при следующей проверке — в течение 15 минут.")
         }
     }
 

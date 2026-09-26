@@ -42,7 +42,13 @@ struct HomeView: View {
                                 searchResults
                             }
                         } else {
-                            workplaceList
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Активные машины: \(workplaces.reduce(0) { $0 + $1.machines })")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 16)
+                                workplaceList
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
