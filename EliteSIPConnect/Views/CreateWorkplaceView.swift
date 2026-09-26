@@ -41,7 +41,10 @@ struct CreateWorkplaceView: View {
             }
 
             Section("Настройки") {
-                TextField("Подпись профиля", text: $label, prompt: Text(user?.lastName ?? lastName))
+                LabeledContent("Подпись профиля") {
+                    TextField("Необязательно", text: $label)
+                        .multilineTextAlignment(.trailing)
+                }
                 SecureField("SIP-пароль", text: $sipPassword)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
