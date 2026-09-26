@@ -96,19 +96,25 @@ actor SparkClient {
         try await send("POST", "/api/elitesip/workplaces", body: input)
     }
 
-    func issueKey(workplaceID: Int, note: String) async throws -> IssuedKey {
-        struct Body: Encodable { let note: String }
-        return try await send("POST", "/api/elitesip/workplaces/\(workplaceID)/keys", body: Body(note: note))
+    func revokeMachine(_ machineID: Int) async throws {
+        let (data, status) = try await sendRaw("POST", "/api/elitesip/machines/\(machineID)/revoke",
+                                               body: Optional<Int>.none, authorized: true, retry: true)
+        guard (200..<300).contains(status) else {
+            if status == 401 { throw SparkError.unauthorized }
+            throw SparkError.server(status: status, message: Self.message(from: data, status: status))
+        }
     }
 
     func previewPair(_ code: PairCode) async throws -> PairPreview {
         try await send("GET", "/api/elitesip/pair/\(code.session)?f=\(code.fingerprint)")
     }
 
-    func claimPair(_ code: PairCode, key: String) async throws -> PairClaimResult {
-        struct Body: Encodable { let fingerprint, key: String }
+    /// Привязывает отсканированную машину к сотруднику: Spark выложит ей
+    /// настройки, и она поднимется сама.
+    func claimPair(_ code: PairCode, workplaceID: Int) async throws -> PairClaimResult {
+        struct Body: Encodable { let fingerprint: String; let workplaceId: Int }
         return try await send("POST", "/api/elitesip/pair/\(code.session)/claim",
-                              body: Body(fingerprint: code.fingerprint, key: key))
+                              body: Body(fingerprint: code.fingerprint, workplaceId: workplaceID))
     }
 
     // MARK: - Транспорт

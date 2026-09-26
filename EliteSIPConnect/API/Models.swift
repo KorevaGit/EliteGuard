@@ -38,7 +38,7 @@ struct Workplace: Decodable, Identifiable, Hashable, Sendable {
     let presetId: Int?
     let presetName: String
     let machines: Int
-    let pendingKeys: Int
+    let lagging: Int
     let lastSeenAt: Date?
     let appVersion: String
 
@@ -46,40 +46,32 @@ struct Workplace: Decodable, Identifiable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, bitrixUserId, firstName, lastName, label, workFormat, presetId, presetName
-        case machines, pendingKeys, lastSeenAt, appVersion
+        case machines, lagging, lastSeenAt, appVersion
         case extension_ = "extension"
     }
 }
 
-struct Activation: Decodable, Identifiable, Hashable, Sendable {
+/// Машина, привязанная к сотруднику. Ключей больше нет: машину привязывают
+/// по QR или коду с её экрана, и Spark сам присылает ей настройки.
+struct Machine: Decodable, Identifiable, Hashable, Sendable {
     let id: Int
-    let kind: String
-    let keyPrefix: String
     let installationId: String
-    let extension_: String
-    let label: String
-    let presetName: String
-    let issuedByName: String
-    let issuedAt: Date
-    let expiresAt: Date
+    let deviceName: String
+    let workplaceLabel: String
     let state: String
+    let configRevision: Int
+    let applied: Bool
+    let boundAt: Date
+    let boundByName: String
+    let revokedAt: Date?
     let checkin: Checkin?
-
-    enum CodingKeys: String, CodingKey {
-        case id, kind, keyPrefix, installationId, label, presetName, issuedByName
-        case issuedAt, expiresAt, state, checkin
-        case extension_ = "extension"
-    }
 
     var stateTitle: String {
         switch state {
-        case "pending": "Ждёт машину"
-        case "active": "Работает"
-        case "expired": "Истёк"
-        case "revoked": "Отозван"
-        case "superseded": "Заменён"
-        case "reflashed": "Перепрошит"
-        default: state
+        case "revoked": "Отвязана"
+        case "legacy": "Ждёт обновления"
+        default:
+            if checkin == nil { "Не выходила на связь" } else if !applied { "Применяет настройки" } else { "Работает" }
         }
     }
 }
@@ -92,7 +84,7 @@ struct Checkin: Decodable, Hashable, Sendable {
 
 struct WorkplaceDetail: Decodable, Sendable {
     let workplace: Workplace
-    let activations: [Activation]
+    let machines: [Machine]
     let conflicts: [String]?
 }
 
@@ -101,12 +93,6 @@ struct Preset: Decodable, Identifiable, Hashable, Sendable {
     let name: String
     let publishedRevision: Int
     let archivedAt: Date?
-}
-
-struct IssuedKey: Decodable, Sendable, Hashable {
-    let key: String
-    let activation: Activation
-    let warning: String?
 }
 
 struct WorkplaceInput: Encodable, Sendable {
@@ -120,6 +106,7 @@ struct WorkplaceInput: Encodable, Sendable {
 
 struct PairPreview: Decodable, Sendable {
     let sessionId: String
+    let code: String
     let state: String
     let deviceName: String
     let appVersion: String
@@ -127,8 +114,7 @@ struct PairPreview: Decodable, Sendable {
 }
 
 struct PairClaimResult: Decodable, Sendable {
-    let deviceName: String
-    let activation: Activation
+    let machine: Machine
 }
 
 /// Содержимое QR с экрана клиента: `elitesip://pair?s=<сессия>&f=<отпечаток>`.

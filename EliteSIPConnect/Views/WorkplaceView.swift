@@ -4,9 +4,7 @@ struct WorkplaceView: View {
     let id: Int
     @Environment(AppModel.self) private var model
     @State private var detail: WorkplaceDetail?
-    @State private var issuing = false
-    @State private var confirmIssue = false
-    @State private var note = ""
+    @State private var revoking: Machine?
 
     var body: some View {
         List {
@@ -17,6 +15,8 @@ struct WorkplaceView: View {
                     LabeledContent("Подпись", value: wp.label)
                     LabeledContent("Формат", value: wp.workFormat == "remote" ? "Удалёнка" : "Офис")
                     LabeledContent("Предустановка", value: wp.presetName.isEmpty ? "не выбрана" : wp.presetName)
+                } footer: {
+                    Text("Правки в Spark уезжают на машины сотрудника сами — в течение 15 минут.")
                 }
 
                 if let conflicts = detail.conflicts, !conflicts.isEmpty {
@@ -29,30 +29,33 @@ struct WorkplaceView: View {
 
                 Section {
                     Button {
-                        confirmIssue = true
+                        model.bind(to: wp)
                     } label: {
-                        HStack {
-                            Label(model.waitingMachine == nil ? "Выпустить ключ" : "Выпустить и привязать",
-                                  systemImage: "key.fill")
-                                .bold()
-                            Spacer()
-                            if issuing { ProgressView() }
-                        }
+                        Label(model.waitingMachine == nil ? "Привязать машину" : "Привязать ждущую машину",
+                              systemImage: "qrcode.viewfinder")
+                            .bold()
                     }
-                    .disabled(issuing || wp.presetId == nil)
+                    .disabled(wp.presetId == nil)
                 } footer: {
                     if let machine = model.waitingMachine {
-                        Text("Ключ сразу уйдёт на «\(machine.preview.deviceName)».")
+                        Text("К сотруднику привяжется «\(machine.preview.deviceName)» (код \(machine.preview.code)).")
                     } else {
-                        Text("Ключ живёт 48 часов. После выпуска отсканируйте QR на машине.")
+                        Text("Отсканируйте QR на экране EliteSIP — машина получит номер и настройки сама.")
                     }
                 }
 
-                Section("Ключи и машины") {
-                    if detail.activations.isEmpty {
-                        Text("Ключей ещё не выпускали").foregroundStyle(.secondary)
+                Section("Машины") {
+                    if detail.machines.isEmpty {
+                        Text("Машин пока нет").foregroundStyle(.secondary)
                     }
-                    ForEach(detail.activations) { ActivationRow(activation: $0) }
+                    ForEach(detail.machines) { machine in
+                        MachineRow(machine: machine)
+                            .swipeActions {
+                                if machine.state != "revoked" {
+                                    Button("Отвязать", role: .destructive) { revoking = machine }
+                                }
+                            }
+                    }
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity)
@@ -65,12 +68,15 @@ struct WorkplaceView: View {
         .onChange(of: model.pairRequest == nil) { _, closed in
             if closed { Task { await load() } }
         }
-        .alert("Выпустить ключ?", isPresented: $confirmIssue) {
-            TextField("Заметка (необязательно)", text: $note)
-            Button("Выпустить") { Task { await issue() } }
-            Button("Отмена", role: .cancel) {}
-        } message: {
-            Text("Ключ показывается один раз. Невостребованные ключи сверх трёх вытесняются.")
+        .confirmationDialog(
+            "Отвязать машину?",
+            isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
+            titleVisibility: .visible,
+            presenting: revoking
+        ) { machine in
+            Button("Отвязать", role: .destructive) { Task { await revoke(machine) } }
+        } message: { machine in
+            Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» сбросится при следующей проверке — в течение 15 минут.")
         }
     }
 
@@ -82,13 +88,10 @@ struct WorkplaceView: View {
         }
     }
 
-    private func issue() async {
-        issuing = true
-        defer { issuing = false }
+    private func revoke(_ machine: Machine) async {
         do {
-            let issued = try await model.client.issueKey(workplaceID: id, note: note)
-            note = ""
-            model.keyIssued(issued)
+            try await model.client.revokeMachine(machine.id)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             await load()
         } catch {
             model.handle(error)
@@ -96,42 +99,42 @@ struct WorkplaceView: View {
     }
 }
 
-struct ActivationRow: View {
-    let activation: Activation
+struct MachineRow: View {
+    let machine: Machine
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(activation.keyPrefix + "-••••-••••").font(.body.monospaced())
+                Text(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)
                 Spacer()
-                Text(activation.stateTitle)
+                Text(machine.stateTitle)
                     .font(.caption.bold())
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(color.opacity(0.15), in: .capsule)
                     .foregroundStyle(color)
             }
             HStack {
-                Text(activation.kind == "reflash" ? "перепрошивка" : "активация")
+                Text(String(machine.installationId.prefix(8))).monospaced()
                 Text("·")
-                Text(activation.issuedAt, format: .dateTime.day().month().hour().minute())
-                if !activation.issuedByName.isEmpty { Text("· \(activation.issuedByName)") }
+                Text(machine.boundAt, format: .dateTime.day().month().hour().minute())
+                if !machine.boundByName.isEmpty { Text("· \(machine.boundByName)") }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            if let checkin = activation.checkin {
+            if let checkin = machine.checkin {
                 Text("На связи \(checkin.lastSeenAt, format: .relative(presentation: .named)) · \(checkin.appVersion)")
                     .font(.caption)
                     .foregroundStyle(checkin.silent ? .orange : .secondary)
             }
         }
+        .opacity(machine.state == "revoked" ? 0.55 : 1)
     }
 
     private var color: Color {
-        switch activation.state {
-        case "active": .green
-        case "pending": .blue
-        case "revoked", "expired": .red
-        default: .gray
+        switch machine.state {
+        case "revoked": .gray
+        case "legacy": .orange
+        default: machine.checkin != nil && machine.applied ? .green : .blue
         }
     }
 }

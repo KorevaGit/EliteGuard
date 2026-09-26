@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Машина, отсканированная раньше, чем выпущен ключ: её код ждёт, пока
-/// установщик выберет сотрудника.
+/// Машина, отсканированная раньше, чем выбран сотрудник: её код ждёт, пока
+/// установщик его выберет.
 struct WaitingMachine: Hashable {
     let code: PairCode
     let preview: PairPreview
@@ -10,10 +10,11 @@ struct WaitingMachine: Hashable {
     func hash(into h: inout Hasher) { h.combine(code) }
 }
 
-/// Что сейчас привязываем: ключ и, если уже известна, машина.
+/// Что сейчас привязываем: к какому сотруднику и, если уже известна, какую
+/// машину.
 struct PairRequest: Identifiable {
     let id = UUID()
-    let issued: IssuedKey
+    let workplace: Workplace
     var code: PairCode?
 }
 
@@ -61,8 +62,8 @@ final class AppModel {
             let preview = try await client.previewPair(code)
             guard preview.state == "waiting" else {
                 alert = preview.state == "expired"
-                    ? "Код устарел — обновите QR на машине"
-                    : "К этой машине уже привязан ключ"
+                    ? "Код устарел — на машине появится новый"
+                    : "Эта машина уже привязана"
                 return
             }
             waitingMachine = WaitingMachine(code: code, preview: preview)
@@ -71,9 +72,10 @@ final class AppModel {
         }
     }
 
-    /// Ключ выпущен: если машина уже ждёт, сразу к подтверждению.
-    func keyIssued(_ issued: IssuedKey) {
-        pairRequest = PairRequest(issued: issued, code: waitingMachine?.code)
+    /// Привязать машину к сотруднику: если машина уже ждёт, сразу к
+    /// подтверждению, иначе — к сканеру.
+    func bind(to workplace: Workplace) {
+        pairRequest = PairRequest(workplace: workplace, code: waitingMachine?.code)
     }
 
     func open(url: URL) {

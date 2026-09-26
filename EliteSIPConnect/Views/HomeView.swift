@@ -143,14 +143,11 @@ struct WaitingMachineRow: View {
                 .frame(width: 44, height: 44)
                 .background(.tint, in: .rect(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 2) {
-                Text(machine.preview.deviceName.isEmpty ? "Машина ждёт ключ" : machine.preview.deviceName)
+                Text(machine.preview.deviceName.isEmpty ? "Машина ждёт привязки" : machine.preview.deviceName)
                     .font(.headline)
-                Text("Выберите сотрудника и выпустите ключ — он уйдёт на эту машину")
+                Text("Код \(machine.preview.code) · выберите сотрудника — машина привяжется к нему")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(machine.preview.expiresAt, style: .timer)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.orange)
             }
             Spacer()
             Button("Сбросить", systemImage: "xmark.circle.fill", action: dismiss)
@@ -197,8 +194,8 @@ struct WorkplaceRow: View {
             }
             HStack(spacing: 10) {
                 Label("\(workplace.machines)", systemImage: "desktopcomputer")
-                if workplace.pendingKeys > 0 {
-                    Label("\(workplace.pendingKeys)", systemImage: "key")
+                if workplace.lagging > 0 {
+                    Label("\(workplace.lagging)", systemImage: "arrow.triangle.2.circlepath")
                 }
                 Text(workplace.presetName).lineLimit(1)
             }

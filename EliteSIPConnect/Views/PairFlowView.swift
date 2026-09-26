@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// Выпущенный ключ → QR машины → подтверждение → ключ на машине.
+/// Сотрудник → QR машины → подтверждение → машина привязана и настраивается
+/// сама. Ключей нет: Spark присылает машине номер и настройки напрямую.
 struct PairFlowView: View {
     let request: PairRequest
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @State private var step: Step = .key
-    @State private var copied = false
+    @State private var step: Step = .scanning
 
     enum Step {
-        case key
         case scanning
         case loading
         case confirm(PairCode, PairPreview)
@@ -45,7 +44,6 @@ struct PairFlowView: View {
 
     private var title: String {
         switch step {
-        case .key: "Ключ выпущен"
         case .scanning: "QR-код машины"
         case .done: "Готово"
         default: "Привязка"
@@ -60,8 +58,6 @@ struct PairFlowView: View {
     @ViewBuilder
     private var content: some View {
         switch step {
-        case .key:
-            keyView
         case .scanning:
             ScannerView { code in Task { await load(code) } }
         case .loading:
@@ -84,67 +80,12 @@ struct PairFlowView: View {
         }
     }
 
-    private var keyView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            VStack(spacing: 8) {
-                Text(request.issued.activation.label.isEmpty ? "Ключ активации" : request.issued.activation.label)
-                    .font(.headline)
-                Text("доб. \(request.issued.activation.extension_) · \(request.issued.activation.presetName)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Text(request.issued.key)
-                .font(.system(size: 34, weight: .semibold, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(.vertical, 18)
-                .frame(maxWidth: .infinity)
-                .background(.fill.tertiary, in: .rect(cornerRadius: 16))
-                .padding(.horizontal)
-
-            if let warning = request.issued.warning {
-                Label(warning, systemImage: "exclamationmark.triangle")
-                    .font(.footnote).foregroundStyle(.orange).padding(.horizontal)
-            }
-
-            Text("Ключ показывается один раз и живёт 48 часов. Отсканируйте QR на экране EliteSIP — ключ уйдёт на машину сам.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
-            VStack(spacing: 12) {
-                Button {
-                    step = .scanning
-                } label: {
-                    Label("Привязать к машине", systemImage: "qrcode.viewfinder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-
-                Button {
-                    UIPasteboard.general.string = request.issued.key
-                    copied = true
-                } label: {
-                    Label(copied ? "Скопировано" : "Скопировать ключ",
-                          systemImage: copied ? "checkmark" : "doc.on.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glass)
-                .controlSize(.large)
-            }
-            .padding(.horizontal)
-            .padding(.bottom)
-        }
-    }
-
     private func confirmView(code: PairCode, preview: PairPreview, busy: Bool) -> some View {
-        let a = request.issued.activation
+        let wp = request.workplace
         return VStack(spacing: 20) {
             Spacer()
             HStack(spacing: 18) {
-                Image(systemName: "key.fill")
+                Image(systemName: "person.fill")
                 Image(systemName: "arrow.right")
                     .foregroundStyle(.secondary)
                     .font(.title2)
@@ -153,30 +94,31 @@ struct PairFlowView: View {
             .font(.system(size: 44))
             .foregroundStyle(.tint)
 
-            Text("Привязать ключ к машине?").font(.title3.bold())
+            Text("Привязать машину?").font(.title3.bold())
 
             VStack(spacing: 0) {
                 row("Машина", preview.deviceName.isEmpty ? "без имени" : preview.deviceName)
+                Divider()
+                row("Код на экране", preview.code)
                 Divider()
                 if !preview.appVersion.isEmpty {
                     row("EliteSIP", preview.appVersion)
                     Divider()
                 }
-                row("Сотрудник", a.label)
+                row("Сотрудник", wp.fullName.isEmpty ? wp.label : wp.fullName)
                 Divider()
-                row("Добавочный", a.extension_)
+                row("Добавочный", wp.extension_)
                 Divider()
-                row("Ключ", a.keyPrefix + "-…")
+                row("Предустановка", wp.presetName.isEmpty ? "не выбрана" : wp.presetName)
             }
             .background(.fill.tertiary, in: .rect(cornerRadius: 14))
             .padding(.horizontal)
 
-            HStack(spacing: 4) {
-                Text("Код действует ещё")
-                Text(preview.expiresAt, style: .timer).monospacedDigit()
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            Text("Сверьте код с экраном машины. После привязки она сама получит номер, SIP-пароль и настройки.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
 
             Spacer()
             Button {
@@ -209,11 +151,12 @@ struct PairFlowView: View {
     }
 
     private func doneView(_ result: PairClaimResult) -> some View {
-        ContentUnavailableView {
-            Label("Ключ отправлен", systemImage: "checkmark.seal.fill")
+        let machine = result.machine
+        return ContentUnavailableView {
+            Label("Машина привязана", systemImage: "checkmark.seal.fill")
                 .foregroundStyle(.green)
         } description: {
-            Text("«\(result.deviceName.isEmpty ? "Машина" : result.deviceName)» получит ключ и активирует рабочее место \(result.activation.label) (доб. \(result.activation.extension_)).")
+            Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» получит настройки \(machine.workplaceLabel) и поднимется сама — вводить на ней ничего не нужно.")
         }
     }
 
@@ -224,7 +167,7 @@ struct PairFlowView: View {
             switch preview.state {
             case "waiting": step = .confirm(code, preview)
             case "expired": step = .failed("Код устарел — на машине появится новый, отсканируйте его.")
-            default: step = .failed("К этой машине уже привязан ключ.")
+            default: step = .failed("Эта машина уже привязана.")
             }
         } catch SparkError.unauthorized {
             model.handle(SparkError.unauthorized)
@@ -237,7 +180,7 @@ struct PairFlowView: View {
     private func claim(code: PairCode, preview: PairPreview) async {
         step = .claiming(code, preview)
         do {
-            let result = try await model.client.claimPair(code, key: request.issued.key)
+            let result = try await model.client.claimPair(code, workplaceID: request.workplace.id)
             if model.waitingMachine?.code == code { model.waitingMachine = nil }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             step = .done(result)

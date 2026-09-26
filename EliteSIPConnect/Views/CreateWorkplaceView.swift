@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Сотрудника ещё нет в EliteSIP: заводим рабочее место, дальше — выпуск ключа.
+/// Сотрудника ещё нет в EliteSIP: заводим рабочее место, дальше — привязка
+/// машины.
 struct CreateWorkplaceView: View {
     let user: BitrixUser
     let created: (Workplace) -> Void
@@ -21,7 +22,7 @@ struct CreateWorkplaceView: View {
             }
             if user.callNumber.isEmpty {
                 Section {
-                    Label("Без CALL_NUMBER в Битриксе ключ не выпустить", systemImage: "exclamationmark.triangle")
+                    Label("Без CALL_NUMBER в Битриксе машине не с чем работать", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
             }
