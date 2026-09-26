@@ -168,10 +168,9 @@ struct EditWorkplaceView: View {
     var body: some View {
         Form {
             if workplace.bitrixUserId == 0 {
-                Section("Сотрудник") {
-                    TextField("Фамилия", text: $lastName)
+                Section("Имя Фамилия") {
                     TextField("Имя", text: $firstName)
-                    TextField("Добавочный", text: $extensionNumber).keyboardType(.numberPad)
+                    TextField("Фамилия", text: $lastName)
                 }
             } else {
                 Section {
@@ -184,6 +183,9 @@ struct EditWorkplaceView: View {
                 }
             }
             Section("Настройки") {
+                if workplace.bitrixUserId == 0 {
+                    TextField("Номер", text: $extensionNumber).keyboardType(.numberPad)
+                }
                 TextField("Подпись профиля", text: $label)
                 SecureField("SIP-пароль", text: $sipPassword)
                     .textInputAutocapitalization(.never)
@@ -218,13 +220,16 @@ struct EditWorkplaceView: View {
         }
         .navigationTitle("Изменить сотрудника")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: lastName) { oldValue, newValue in
+            if label.isEmpty || label == oldValue { label = newValue }
+        }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Отмена") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Сохранить") { Task { await save() } }
-                    .disabled(busy || sipPassword.isEmpty ||
+                    .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                               (workplace.bitrixUserId == 0 &&
                                ((firstName.isEmpty && lastName.isEmpty) || extensionNumber.isEmpty ||
                                 lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))

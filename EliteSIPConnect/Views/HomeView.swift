@@ -48,8 +48,8 @@ struct HomeView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .contentMargins(.top, 0, for: .scrollContent)
-            .contentMargins(.horizontal, 10, for: .scrollContent)
+            .contentMargins(.top, 22, for: .scrollContent)
+            .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Фамилия, имя или добавочный")
@@ -70,24 +70,24 @@ struct HomeView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Text(model.userName)
-                        Button("Выйти", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                            Task { await model.signOut() }
+                    HStack(spacing: 0) {
+                        Menu {
+                            Text(model.userName)
+                            Button("Выйти", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                                Task { await model.signOut() }
+                            }
+                        } label: {
+                            Image(systemName: "person.crop.circle")
+                                .frame(width: 32, height: 32)
                         }
-                    } label: {
-                        Image(systemName: "person.crop.circle")
-                            .frame(width: 32, height: 32)
+                        Button {
+                            path.append(Route.create(nil))
+                        } label: {
+                            Image(systemName: "person.badge.plus")
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("Ручной профиль")
                     }
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        path.append(Route.create(nil))
-                    } label: {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .frame(width: 32, height: 32)
-                    }
-                    .accessibilityLabel("Ручной профиль")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }

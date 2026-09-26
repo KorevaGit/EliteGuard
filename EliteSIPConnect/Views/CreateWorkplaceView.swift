@@ -32,17 +32,19 @@ struct CreateWorkplaceView: View {
                     }
                 }
             } else {
-                Section("Ручной профиль") {
-                    TextField("Фамилия", text: $lastName)
+                Section("Имя Фамилия") {
                     TextField("Имя", text: $firstName)
-                    TextField("Добавочный", text: $extensionNumber)
-                        .keyboardType(.numberPad)
+                    TextField("Фамилия", text: $lastName)
                 }
             }
 
             Section("Настройки") {
+                if user == nil {
+                    TextField("Номер", text: $extensionNumber)
+                        .keyboardType(.numberPad)
+                }
                 LabeledContent("Подпись профиля") {
-                    TextField("Необязательно", text: $label)
+                    TextField("Обязательно", text: $label)
                         .multilineTextAlignment(.trailing)
                 }
                 SecureField("SIP-пароль", text: $sipPassword)
@@ -87,7 +89,7 @@ struct CreateWorkplaceView: View {
                         Spacer()
                     }
                 }
-                .disabled(busy || sipPassword.isEmpty ||
+                .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                           (user == nil && ((firstName.isEmpty && lastName.isEmpty) ||
                                            extensionNumber.isEmpty || !extensionNumber.allSatisfy(\.isNumber) ||
                                            lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
@@ -95,6 +97,12 @@ struct CreateWorkplaceView: View {
         }
         .navigationTitle(user == nil ? "Ручной профиль" : "Новый сотрудник")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if let user, label.isEmpty { label = user.lastName }
+        }
+        .onChange(of: lastName) { oldValue, newValue in
+            if label.isEmpty || label == oldValue { label = newValue }
+        }
         .task {
             do {
                 presets = try await model.client.presets()
@@ -111,7 +119,7 @@ struct CreateWorkplaceView: View {
         do {
             var input = WorkplaceInput(
                 bitrixUserId: user?.userId ?? 0,
-                label: label.isEmpty ? (user?.lastName ?? lastName) : label,
+                label: label.trimmingCharacters(in: .whitespacesAndNewlines),
                 sipPassword: sipPassword,
                 workFormat: remote ? "remote" : "office",
                 presetId: presetID)
