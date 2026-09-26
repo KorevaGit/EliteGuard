@@ -13,17 +13,11 @@ struct LoginView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack {
-                Image("LoginQR")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 136, height: 136)
-                    .mask { Rectangle().padding(12) }
-                QRCornerMarks()
-                    .stroke(.tint, style: StrokeStyle(lineWidth: 7, lineCap: .round))
-                    .frame(width: 154, height: 154)
-            }
+            Image("LoginIcon")
+                .resizable()
+                .scaledToFit()
                 .frame(width: 154, height: 154)
+                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
                 .accessibilityLabel("EliteGuard")
                 .padding(.top, 20)
 
@@ -111,32 +105,6 @@ struct LoginView: View {
                 self.error = error.localizedDescription
             }
         }
-    }
-}
-
-private struct QRCornerMarks: Shape {
-    func path(in rect: CGRect) -> Path {
-        let length: CGFloat = 24
-        let radius: CGFloat = 14
-        let inset: CGFloat = 5
-        var path = Path()
-        path.move(to: CGPoint(x: inset, y: length + inset))
-        path.addLine(to: CGPoint(x: inset, y: radius + inset))
-        path.addQuadCurve(to: CGPoint(x: radius + inset, y: inset), control: CGPoint(x: inset, y: inset))
-        path.addLine(to: CGPoint(x: length + inset, y: inset))
-        path.move(to: CGPoint(x: rect.maxX - length - inset, y: inset))
-        path.addLine(to: CGPoint(x: rect.maxX - radius - inset, y: inset))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX - inset, y: radius + inset), control: CGPoint(x: rect.maxX - inset, y: inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: length + inset))
-        path.move(to: CGPoint(x: inset, y: rect.maxY - length - inset))
-        path.addLine(to: CGPoint(x: inset, y: rect.maxY - radius - inset))
-        path.addQuadCurve(to: CGPoint(x: radius + inset, y: rect.maxY - inset), control: CGPoint(x: inset, y: rect.maxY - inset))
-        path.addLine(to: CGPoint(x: length + inset, y: rect.maxY - inset))
-        path.move(to: CGPoint(x: rect.maxX - length - inset, y: rect.maxY - inset))
-        path.addLine(to: CGPoint(x: rect.maxX - radius - inset, y: rect.maxY - inset))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX - inset, y: rect.maxY - radius - inset), control: CGPoint(x: rect.maxX - inset, y: rect.maxY - inset))
-        path.addLine(to: CGPoint(x: rect.maxX - inset, y: rect.maxY - length - inset))
-        return path
     }
 }
 
