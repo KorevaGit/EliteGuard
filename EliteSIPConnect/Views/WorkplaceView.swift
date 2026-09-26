@@ -35,17 +35,6 @@ struct WorkplaceView: View {
                     }
                 }
 
-                Section {
-                    Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
-                        confirmDelete = true
-                    }
-                    .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
-                } footer: {
-                    if detail.machines.contains(where: { $0.state != "revoked" }) {
-                        Text("Перед удалением отвяжите все машины пользователя.")
-                    }
-                }
-
                 if let conflicts = detail.conflicts, !conflicts.isEmpty {
                     Section {
                         Label("На этом добавочном уже работают: \(conflicts.joined(separator: ", "))",
@@ -62,9 +51,15 @@ struct WorkplaceView: View {
                               systemImage: "qrcode.viewfinder")
                             .bold()
                     }
-                    .disabled(wp.presetId == nil)
+                    .disabled(wp.presetId == nil || wp.extension_.isEmpty || !(detail.conflicts ?? []).isEmpty)
                 } footer: {
-                    if let machine = model.waitingMachine {
+                    if !(detail.conflicts ?? []).isEmpty {
+                        Text("Этот номер уже занят. Устраните конфликт перед привязкой машины.")
+                    } else if wp.presetId == nil {
+                        Text("Сначала выберите предустановку.")
+                    } else if wp.extension_.isEmpty {
+                        Text("Для привязки нужен номер.")
+                    } else if let machine = model.waitingMachine {
                         Text("К сотруднику привяжется «\(machine.preview.deviceName)» (код \(machine.preview.code)).")
                     } else {
                         Text("Отсканируйте QR на экране EliteSIP — машина получит номер и настройки сама.")
@@ -86,6 +81,23 @@ struct WorkplaceView: View {
                                 .buttonStyle(.borderless)
                             }
                         }
+                    }
+                }
+
+                Section {
+                    Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
+                        confirmDelete = true
+                    }
+                    .foregroundStyle(detail.machines.contains { $0.state != "revoked" } ? .gray : .red)
+                    .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
+                    .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
+                        Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
+                    } message: {
+                        Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+                    }
+                } footer: {
+                    if detail.machines.contains(where: { $0.state != "revoked" }) {
+                        Text("Перед удалением отвяжите все машины пользователя.")
                     }
                 }
             } else {
@@ -120,11 +132,6 @@ struct WorkplaceView: View {
             Button("Отвязать", role: .destructive) { Task { await revoke(machine) } }
         } message: { machine in
             Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» сбросится при следующей проверке — в течение 15 минут.")
-        }
-        .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
-            Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
-        } message: {
-            Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
         }
     }
 
@@ -222,7 +229,7 @@ struct EditWorkplaceView: View {
                 if workplace.bitrixUserId == 0 {
                     TextField("Номер", text: $extensionNumber).keyboardType(.numberPad)
                 }
-                TextField("Подпись профиля", text: $label)
+                TextField("Подпись", text: $label)
                 SecureField("SIP-пароль", text: $sipPassword)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()

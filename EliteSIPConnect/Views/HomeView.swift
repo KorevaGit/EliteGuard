@@ -24,7 +24,8 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            List {
+            VStack(spacing: 0) {
+                List {
                 if let machine = model.waitingMachine {
                     Section {
                         WaitingMachineRow(machine: machine) { model.waitingMachine = nil }
@@ -53,44 +54,20 @@ struct HomeView: View {
                         }
                     }
                 }
+                }
+                .listStyle(.insetGrouped)
+                .scrollDismissesKeyboard(.immediately)
+                .contentMargins(.top, 22, for: .scrollContent)
+                .contentMargins(.horizontal, 16, for: .scrollContent)
+                .refreshable { await loadWorkplaces() }
+
+                searchBar
             }
-            .listStyle(.insetGrouped)
-            .scrollDismissesKeyboard(.immediately)
-            .contentMargins(.top, 22, for: .scrollContent)
-            .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack(spacing: 10) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                        TextField("Фамилия, имя или номер", text: $query)
-                            .textFieldStyle(.plain)
-                            .focused($searchFocused)
-                            .submitLabel(.search)
-                            .onSubmit { searchFocused = false }
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        if !query.isEmpty {
-                            Button("Очистить", systemImage: "xmark.circle.fill") { query = "" }
-                                .labelStyle(.iconOnly)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: .capsule)
-                    if searchFocused {
-                        Button("Готово") { searchFocused = false }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(uiColor: .systemGroupedBackground))
-            }
+            .onChange(of: path.count) { _, _ in searchFocused = false }
             .task(id: query) { await search() }
             .task { await loadWorkplaces() }
-            .refreshable { await loadWorkplaces() }
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .workplace(let id):
@@ -178,7 +155,37 @@ struct HomeView: View {
         }
     }
 
+    private var searchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Фамилия, имя или номер", text: $query)
+                    .textFieldStyle(.plain)
+                    .focused($searchFocused)
+                    .submitLabel(.search)
+                    .onSubmit { searchFocused = false }
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                if !query.isEmpty {
+                    Button("Очистить", systemImage: "xmark.circle.fill") { query = "" }
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: .capsule)
+            if searchFocused {
+                Button("Готово") { searchFocused = false }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+
     private func open(_ user: BitrixUser) {
+        searchFocused = false
         if let id = user.workplaceId {
             path.append(Route.workplace(id))
         } else {

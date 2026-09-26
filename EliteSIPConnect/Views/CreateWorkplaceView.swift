@@ -43,10 +43,7 @@ struct CreateWorkplaceView: View {
                     TextField("Номер", text: $extensionNumber)
                         .keyboardType(.numberPad)
                 }
-                LabeledContent("Подпись профиля") {
-                    TextField("Обязательно", text: $label)
-                        .multilineTextAlignment(.trailing)
-                }
+                TextField("Подпись", text: $label)
                 SecureField("SIP-пароль", text: $sipPassword)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
