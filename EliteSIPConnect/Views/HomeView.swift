@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var machineNumber = ""
     @State private var checkingNumber = false
     @State private var numberError: String?
+    @FocusState private var searchFocused: Bool
 
     private var normalizedNumber: String { machineNumber.filter(\.isNumber) }
 
@@ -54,28 +55,38 @@ struct HomeView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .scrollDismissesKeyboard(.immediately)
             .contentMargins(.top, 22, for: .scrollContent)
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Фамилия, имя или номер", text: $query)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    if !query.isEmpty {
-                        Button("Очистить", systemImage: "xmark.circle.fill") { query = "" }
-                            .labelStyle(.iconOnly)
-                            .foregroundStyle(.secondary)
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        TextField("Фамилия, имя или номер", text: $query)
+                            .textFieldStyle(.plain)
+                            .focused($searchFocused)
+                            .submitLabel(.search)
+                            .onSubmit { searchFocused = false }
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        if !query.isEmpty {
+                            Button("Очистить", systemImage: "xmark.circle.fill") { query = "" }
+                                .labelStyle(.iconOnly)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: .capsule)
+                    if searchFocused {
+                        Button("Готово") { searchFocused = false }
                     }
                 }
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-                .background(.regularMaterial, in: .capsule)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(.bar)
+                .background(Color(uiColor: .systemGroupedBackground))
             }
             .task(id: query) { await search() }
             .task { await loadWorkplaces() }
