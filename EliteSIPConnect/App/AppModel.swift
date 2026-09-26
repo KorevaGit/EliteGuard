@@ -3,11 +3,11 @@ import SwiftUI
 /// Машина, отсканированная раньше, чем выбран сотрудник: её код ждёт, пока
 /// установщик его выберет.
 struct WaitingMachine: Hashable {
-    let code: PairCode
+    let source: PairSource
     let preview: PairPreview
 
-    static func == (a: Self, b: Self) -> Bool { a.code == b.code }
-    func hash(into h: inout Hasher) { h.combine(code) }
+    static func == (a: Self, b: Self) -> Bool { a.source == b.source }
+    func hash(into h: inout Hasher) { h.combine(source) }
 }
 
 /// Что сейчас привязываем: к какому сотруднику и, если уже известна, какую
@@ -15,7 +15,7 @@ struct WaitingMachine: Hashable {
 struct PairRequest: Identifiable {
     let id = UUID()
     let workplace: Workplace
-    var code: PairCode?
+    var source: PairSource?
 }
 
 @MainActor @Observable
@@ -66,16 +66,26 @@ final class AppModel {
                     : "Эта машина уже привязана"
                 return
             }
-            waitingMachine = WaitingMachine(code: code, preview: preview)
+            waitingMachine = WaitingMachine(source: .qr(code), preview: preview)
         } catch {
             handle(error)
         }
     }
 
+    func machineEntered(_ number: String) async throws {
+        let preview = try await client.previewPairNumber(number)
+        guard preview.state == "waiting" else {
+            throw SparkError.transport(preview.state == "expired"
+                                       ? "Код устарел — на машине появится новый"
+                                       : "Эта машина уже привязана")
+        }
+        waitingMachine = WaitingMachine(source: .number(number), preview: preview)
+    }
+
     /// Привязать машину к сотруднику: если машина уже ждёт, сразу к
     /// подтверждению, иначе — к сканеру.
     func bind(to workplace: Workplace) {
-        pairRequest = PairRequest(workplace: workplace, code: waitingMachine?.code)
+        pairRequest = PairRequest(workplace: workplace, source: waitingMachine?.source)
     }
 
     func open(url: URL) {

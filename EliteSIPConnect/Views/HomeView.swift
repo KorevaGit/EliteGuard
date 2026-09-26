@@ -14,6 +14,12 @@ struct HomeView: View {
     @State private var searching = false
     @State private var loading = false
     @State private var scanning = false
+    @State private var enteringNumber = false
+    @State private var machineNumber = ""
+    @State private var checkingNumber = false
+    @State private var numberError: String?
+
+    private var normalizedNumber: String { machineNumber.filter(\.isNumber) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -52,14 +58,32 @@ struct HomeView: View {
             .contentMargins(.horizontal, 16, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "Фамилия, имя или добавочный")
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Фамилия, имя или номер", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    if !query.isEmpty {
+                        Button("Очистить", systemImage: "xmark.circle.fill") { query = "" }
+                            .labelStyle(.iconOnly)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .background(.regularMaterial, in: .capsule)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
             .task(id: query) { await search() }
             .task { await loadWorkplaces() }
             .refreshable { await loadWorkplaces() }
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .workplace(let id):
-                    WorkplaceView(id: id)
+                    WorkplaceView(id: id) { Task { await loadWorkplaces() } }
                 case .create(let user):
                     CreateWorkplaceView(user: user) { created in
                         path.removeLast()
@@ -85,12 +109,18 @@ struct HomeView: View {
                         } label: {
                             Image(systemName: "person.badge.plus")
                                 .frame(width: 32, height: 32)
+                                .offset(y: 2)
                         }
                         .accessibilityLabel("Ручной профиль")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
+                    HStack(spacing: 0) {
+                        Button("Ввести номер машины", systemImage: "number") { enteringNumber = true }
+                            .labelStyle(.iconOnly)
+                        Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
+                            .labelStyle(.iconOnly)
+                    }
                 }
             }
             .sheet(isPresented: $scanning) {
@@ -106,6 +136,34 @@ struct HomeView: View {
                     }
                 }
             }
+            .sheet(isPresented: $enteringNumber) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            TextField("123-456", text: $machineNumber)
+                                .keyboardType(.numberPad)
+                        } header: {
+                            Text("Номер машины")
+                        } footer: {
+                            Text("Введите шесть цифр с экрана EliteSIP. После проверки выберите сотрудника для привязки.")
+                        }
+                        if let numberError {
+                            Text(numberError).foregroundStyle(.red)
+                        }
+                    }
+                    .navigationTitle("Номер машины")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Отмена") { enteringNumber = false }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Проверить") { Task { await checkMachineNumber() } }
+                                .disabled(normalizedNumber.count != 6 || checkingNumber)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -114,6 +172,19 @@ struct HomeView: View {
             path.append(Route.workplace(id))
         } else {
             path.append(Route.create(user))
+        }
+    }
+
+    private func checkMachineNumber() async {
+        checkingNumber = true
+        defer { checkingNumber = false }
+        do {
+            try await model.machineEntered(normalizedNumber)
+            machineNumber = ""
+            numberError = nil
+            enteringNumber = false
+        } catch {
+            numberError = error.localizedDescription
         }
     }
 
@@ -200,21 +271,30 @@ struct WorkplaceRow: View {
     let workplace: Workplace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(workplace.fullName.isEmpty ? workplace.label : workplace.fullName)
                 Spacer()
                 Text(workplace.extension_).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             }
-            HStack(spacing: 10) {
-                Label("\(workplace.machines)", systemImage: "desktopcomputer")
-                if workplace.lagging > 0 {
-                    Label("\(workplace.lagging)", systemImage: "arrow.triangle.2.circlepath")
-                }
-                Text(workplace.presetName).lineLimit(1)
+            HStack(spacing: 8) {
+                Text(workplace.presetName.isEmpty ? "Без предустановки" : workplace.presetName)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Circle().fill(status.color).frame(width: 7, height: 7)
+                Text(status.title)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+
+    private var status: (title: String, color: Color) {
+        if workplace.machines == 0 { return ("Без машины", .gray) }
+        if workplace.lagging > 0 { return ("Применяет настройки", .orange) }
+        if let seen = workplace.lastSeenAt, Date().timeIntervalSince(seen) > 5 * 24 * 60 * 60 {
+            return ("Молчит", .orange)
+        }
+        return ("Работает", .green)
     }
 }

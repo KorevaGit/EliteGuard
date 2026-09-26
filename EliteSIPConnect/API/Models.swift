@@ -175,6 +175,12 @@ struct PairClaimResult: Decodable, Sendable {
     let machine: Machine
 }
 
+/// QR-ссылка и шестизначный код ведут к одной сессии привязки.
+enum PairSource: Hashable, Sendable {
+    case qr(PairCode)
+    case number(String)
+}
+
 /// Содержимое QR с экрана клиента: `elitesip://pair?s=<сессия>&f=<отпечаток>`.
 struct PairCode: Hashable, Sendable {
     let session: String

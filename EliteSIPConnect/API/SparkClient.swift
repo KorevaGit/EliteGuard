@@ -124,12 +124,20 @@ actor SparkClient {
         try await send("PUT", "/api/elitesip/workplaces/\(id)", body: input)
     }
 
+    func deleteWorkplace(_ id: Int) async throws {
+        try await sendEmpty("DELETE", "/api/elitesip/workplaces/\(id)")
+    }
+
     func pushWorkplace(_ id: Int) async throws -> WorkplacePushResult {
         try await send("POST", "/api/elitesip/workplaces/\(id)/push", body: Optional<Int>.none)
     }
 
     func revokeMachine(_ machineID: Int) async throws {
-        let (data, status) = try await sendRaw("POST", "/api/elitesip/machines/\(machineID)/revoke",
+        try await sendEmpty("POST", "/api/elitesip/machines/\(machineID)/revoke")
+    }
+
+    private func sendEmpty(_ method: String, _ path: String) async throws {
+        let (data, status) = try await sendRaw(method, path,
                                                body: Optional<Int>.none, authorized: true, retry: true)
         guard (200..<300).contains(status) else {
             if status == 401 { throw SparkError.unauthorized }
@@ -139,6 +147,16 @@ actor SparkClient {
 
     func previewPair(_ code: PairCode) async throws -> PairPreview {
         try await send("GET", "/api/elitesip/pair/\(code.session)?f=\(code.fingerprint)")
+    }
+
+    func previewPairNumber(_ number: String) async throws -> PairPreview {
+        try await send("GET", "/api/elitesip/pair-code/\(number)")
+    }
+
+    func bindPairNumber(_ number: String, workplaceID: Int) async throws -> PairClaimResult {
+        struct Body: Encodable { let code: String }
+        return try await send("POST", "/api/elitesip/workplaces/\(workplaceID)/machines",
+                              body: Body(code: number))
     }
 
     /// Привязывает отсканированную машину к сотруднику: Spark выложит ей

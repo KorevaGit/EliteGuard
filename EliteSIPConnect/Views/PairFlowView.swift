@@ -12,8 +12,8 @@ struct PairFlowView: View {
     enum Step {
         case scanning
         case loading
-        case confirm(PairCode, PairPreview)
-        case claiming(PairCode, PairPreview)
+        case confirm(PairSource, PairPreview)
+        case claiming(PairSource, PairPreview)
         case done(PairClaimResult)
         case failed(String)
     }
@@ -38,7 +38,7 @@ struct PairFlowView: View {
         }
         .interactiveDismissDisabled(isBusy)
         .task {
-            if let code = request.code { await load(code) }
+            if let source = request.source { await load(source) }
         }
     }
 
@@ -59,13 +59,13 @@ struct PairFlowView: View {
     private var content: some View {
         switch step {
         case .scanning:
-            ScannerView { code in Task { await load(code) } }
+            ScannerView { code in Task { await load(.qr(code)) } }
         case .loading:
             ProgressView("Проверяю код…").frame(maxHeight: .infinity)
-        case .confirm(let code, let preview):
-            confirmView(code: code, preview: preview, busy: false)
-        case .claiming(let code, let preview):
-            confirmView(code: code, preview: preview, busy: true)
+        case .confirm(let source, let preview):
+            confirmView(source: source, preview: preview, busy: false)
+        case .claiming(let source, let preview):
+            confirmView(source: source, preview: preview, busy: true)
         case .done(let result):
             doneView(result)
         case .failed(let message):
@@ -80,7 +80,7 @@ struct PairFlowView: View {
         }
     }
 
-    private func confirmView(code: PairCode, preview: PairPreview, busy: Bool) -> some View {
+    private func confirmView(source: PairSource, preview: PairPreview, busy: Bool) -> some View {
         let wp = request.workplace
         return VStack(spacing: 20) {
             Spacer()
@@ -122,7 +122,7 @@ struct PairFlowView: View {
 
             Spacer()
             Button {
-                Task { await claim(code: code, preview: preview) }
+                Task { await claim(source: source, preview: preview) }
             } label: {
                 Group {
                     if busy { ProgressView() } else { Text("Привязать").bold() }
@@ -160,12 +160,16 @@ struct PairFlowView: View {
         }
     }
 
-    private func load(_ code: PairCode) async {
+    private func load(_ source: PairSource) async {
         step = .loading
         do {
-            let preview = try await model.client.previewPair(code)
+            let preview: PairPreview
+            switch source {
+            case .qr(let code): preview = try await model.client.previewPair(code)
+            case .number(let number): preview = try await model.client.previewPairNumber(number)
+            }
             switch preview.state {
-            case "waiting": step = .confirm(code, preview)
+            case "waiting": step = .confirm(source, preview)
             case "expired": step = .failed("Код устарел — на машине появится новый, отсканируйте его.")
             default: step = .failed("Эта машина уже привязана.")
             }
@@ -177,11 +181,17 @@ struct PairFlowView: View {
         }
     }
 
-    private func claim(code: PairCode, preview: PairPreview) async {
-        step = .claiming(code, preview)
+    private func claim(source: PairSource, preview: PairPreview) async {
+        step = .claiming(source, preview)
         do {
-            let result = try await model.client.claimPair(code, workplaceID: request.workplace.id)
-            if model.waitingMachine?.code == code { model.waitingMachine = nil }
+            let result: PairClaimResult
+            switch source {
+            case .qr(let code):
+                result = try await model.client.claimPair(code, workplaceID: request.workplace.id)
+            case .number(let number):
+                result = try await model.client.bindPairNumber(number, workplaceID: request.workplace.id)
+            }
+            if model.waitingMachine?.source == source { model.waitingMachine = nil }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             step = .done(result)
         } catch SparkError.unauthorized {

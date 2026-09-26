@@ -2,11 +2,15 @@ import SwiftUI
 
 struct WorkplaceView: View {
     let id: Int
+    let deleted: () -> Void
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
     @State private var detail: WorkplaceDetail?
     @State private var revoking: Machine?
     @State private var editing = false
     @State private var pushing = false
+    @State private var deleting = false
+    @State private var confirmDelete = false
 
     var body: some View {
         List {
@@ -28,6 +32,17 @@ struct WorkplaceView: View {
                             Task { await push() }
                         }
                         .disabled(pushing)
+                    }
+                }
+
+                Section {
+                    Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
+                        confirmDelete = true
+                    }
+                    .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
+                } footer: {
+                    if detail.machines.contains(where: { $0.state != "revoked" }) {
+                        Text("Перед удалением отвяжите все машины пользователя.")
                     }
                 }
 
@@ -61,12 +76,16 @@ struct WorkplaceView: View {
                         Text("Машин пока нет").foregroundStyle(.secondary)
                     }
                     ForEach(detail.machines) { machine in
-                        MachineRow(machine: machine)
-                            .swipeActions {
-                                if machine.state != "revoked" {
-                                    Button("Отвязать", role: .destructive) { revoking = machine }
+                        VStack(alignment: .leading, spacing: 8) {
+                            MachineRow(machine: machine)
+                            if machine.state != "revoked" {
+                                Button("Отвязать машину", systemImage: "link.badge.minus", role: .destructive) {
+                                    revoking = machine
                                 }
+                                .font(.subheadline)
+                                .buttonStyle(.borderless)
                             }
+                        }
                     }
                 }
             } else {
@@ -102,6 +121,11 @@ struct WorkplaceView: View {
         } message: { machine in
             Text("«\(machine.deviceName.isEmpty ? "Машина" : machine.deviceName)» сбросится при следующей проверке — в течение 15 минут.")
         }
+        .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
+            Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
+        } message: {
+            Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+        }
     }
 
     private func load() async {
@@ -117,6 +141,18 @@ struct WorkplaceView: View {
             try await model.client.revokeMachine(machine.id)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             await load()
+        } catch {
+            model.handle(error)
+        }
+    }
+
+    private func remove() async {
+        deleting = true
+        defer { deleting = false }
+        do {
+            try await model.client.deleteWorkplace(id)
+            deleted()
+            dismiss()
         } catch {
             model.handle(error)
         }
