@@ -12,61 +12,122 @@ struct LoginView: View {
     private enum Field { case login, password }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    VStack(spacing: 12) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 56, weight: .light))
-                            .foregroundStyle(.tint)
-                        Text("EliteGuard")
-                            .font(.title2.bold())
-                        Text("Элитный Сочи · выпуск ключей и привязка рабочих мест EliteSIP")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .listRowBackground(Color.clear)
-                }
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    Spacer(minLength: 32)
 
-                Section {
-                    TextField("Логин Битрикс", text: $login)
-                        .textContentType(.username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focus, equals: .login)
-                        .submitLabel(.next)
-                        .onSubmit { focus = .password }
-                    SecureField("Пароль", text: $password)
-                        .textContentType(.password)
-                        .focused($focus, equals: .password)
-                        .submitLabel(.go)
-                        .onSubmit(submit)
-                } footer: {
-                    Text("Вход в spark.elitesochi.com. Нужен доступ к разделу EliteSIP.")
-                }
+                    VStack(spacing: 18) {
+                        ZStack {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 124, weight: .ultraLight))
+                                .foregroundStyle(.tint)
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(uiColor: .systemGroupedBackground))
+                                .frame(width: 66, height: 66)
+                            Image("Crown")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 52, height: 52)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(height: 150)
+                        .accessibilityLabel("EliteGuard")
 
-                Section {
-                    Toggle("Локальная учётная запись", isOn: $local)
-                }
-
-                if let error {
-                    Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
-                }
-
-                Section {
-                    Button(action: submit) {
-                        HStack {
-                            Spacer()
-                            if busy { ProgressView() } else { Text("Войти").bold() }
-                            Spacer()
+                        VStack(spacing: 7) {
+                            Text("EliteGuard")
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
+                            Text("Подключение сотрудников и машин EliteSIP")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
                         }
                     }
-                    .disabled(busy || login.isEmpty || password.isEmpty)
+                    .frame(maxWidth: .infinity)
+
+                    Spacer(minLength: 68)
+
+                    VStack(spacing: 18) {
+                        VStack(alignment: .leading, spacing: 9) {
+                            Text("Способ входа")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Picker("Способ входа", selection: $local) {
+                                Text("Битрикс").tag(false)
+                                Text("Spark").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            Text(local
+                                 ? "Учётная запись Spark — отдельный логин и пароль, выданные администратором. Используйте её, если вам не назначен вход через Битрикс."
+                                 : "Войдите с логином и паролем Битрикс. Нужен доступ к разделу EliteSIP в Spark.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        VStack(spacing: 0) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person")
+                                    .frame(width: 22)
+                                    .foregroundStyle(.secondary)
+                                TextField(local ? "Логин Spark" : "Логин Битрикс", text: $login)
+                                    .textContentType(.username)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .focused($focus, equals: .login)
+                                    .submitLabel(.next)
+                                    .onSubmit { focus = .password }
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(height: 58)
+
+                            Divider().padding(.leading, 50)
+
+                            HStack(spacing: 12) {
+                                Image(systemName: "lock")
+                                    .frame(width: 22)
+                                    .foregroundStyle(.secondary)
+                                SecureField("Пароль", text: $password)
+                                    .textContentType(.password)
+                                    .focused($focus, equals: .password)
+                                    .submitLabel(.go)
+                                    .onSubmit(submit)
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(height: 58)
+                        }
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+
+                        if let error {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        Button(action: submit) {
+                            Group {
+                                if busy { ProgressView().tint(.white) }
+                                else { Text("Войти").fontWeight(.semibold) }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .foregroundStyle(.white)
+                            .background(.tint, in: RoundedRectangle(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(busy || login.isEmpty || password.isEmpty)
+                        .opacity(busy || login.isEmpty || password.isEmpty ? 0.55 : 1)
+                    }
+                    .frame(maxWidth: 460)
+                    .padding(.bottom, 22)
                 }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: geometry.size.height)
+                .padding(.horizontal, 24)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color(uiColor: .systemGroupedBackground))
         }
     }
 

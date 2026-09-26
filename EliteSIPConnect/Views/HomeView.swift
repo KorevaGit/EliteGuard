@@ -37,16 +37,16 @@ struct HomeView: View {
                         }
                     }
                 } else {
-                    Section {
-                        if loading && workplaces.isEmpty {
-                            ProgressView().frame(maxWidth: .infinity)
-                        }
-                        ForEach(workplaces) { wp in
-                            NavigationLink(value: Route.workplace(wp.id)) { WorkplaceRow(workplace: wp) }
-                        }
+                    if loading && workplaces.isEmpty {
+                        ProgressView().frame(maxWidth: .infinity)
+                    }
+                    ForEach(workplaces) { wp in
+                        NavigationLink(value: Route.workplace(wp.id)) { WorkplaceRow(workplace: wp) }
                     }
                 }
             }
+            .listStyle(.plain)
+            .contentMargins(.top, 0, for: .scrollContent)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Фамилия, имя или добавочный")
@@ -67,22 +67,22 @@ struct HomeView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Text(model.userName)
-                        Button("Выйти", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                            Task { await model.signOut() }
+                    HStack {
+                        Menu {
+                            Text(model.userName)
+                            Button("Выйти", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                                Task { await model.signOut() }
+                            }
+                        } label: {
+                            Image(systemName: "person.crop.circle")
                         }
-                    } label: {
-                        Image(systemName: "person.crop.circle")
+                        Button("Ручной профиль", systemImage: "person.badge.plus") {
+                            path.append(Route.create(nil))
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack {
-                        Button("Добавить сотрудника", systemImage: "person.badge.plus") {
-                            path.append(Route.create(nil))
-                        }
-                        Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
-                    }
+                    Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
                 }
             }
             .sheet(isPresented: $scanning) {
