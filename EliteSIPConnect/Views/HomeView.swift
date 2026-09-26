@@ -25,43 +25,31 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                List {
-                if let machine = model.waitingMachine {
-                    Section {
-                        WaitingMachineRow(machine: machine) { model.waitingMachine = nil }
-                            .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
-                    }
-                }
+                ScrollView {
+                    LazyVStack(spacing: 20) {
+                        if let machine = model.waitingMachine {
+                            WaitingMachineRow(machine: machine) { model.waitingMachine = nil }
+                                .padding(14)
+                                .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                        }
 
-                if query.trimmingCharacters(in: .whitespaces).count >= 2 {
-                    Section("Сотрудники Битрикса") {
-                        if searching && users.isEmpty {
-                            ProgressView().frame(maxWidth: .infinity)
-                        } else if users.isEmpty {
-                            Text("Никого не нашли").foregroundStyle(.secondary)
-                        }
-                        ForEach(users) { user in
-                            Button { open(user) } label: { UserRow(user: user) }
-                                .tint(.primary)
-                                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
-                        }
-                    }
-                } else {
-                    Section {
-                        if loading && workplaces.isEmpty {
-                            ProgressView().frame(maxWidth: .infinity)
-                        }
-                        ForEach(workplaces) { wp in
-                            NavigationLink(value: Route.workplace(wp.id)) { WorkplaceRow(workplace: wp) }
-                                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
+                        if query.trimmingCharacters(in: .whitespaces).count >= 2 {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Сотрудники Битрикса")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.leading, 16)
+                                searchResults
+                            }
+                        } else {
+                            workplaceList
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 22)
+                    .padding(.bottom, 16)
                 }
-                }
-                .listStyle(.insetGrouped)
                 .scrollDismissesKeyboard(.immediately)
-                .contentMargins(.top, 22, for: .scrollContent)
-                .contentMargins(.horizontal, 16, for: .scrollContent)
                 .refreshable { await loadWorkplaces() }
 
                 searchBar
@@ -157,6 +145,67 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private var workplaceList: some View {
+        VStack(spacing: 0) {
+            if loading && workplaces.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding()
+            } else if workplaces.isEmpty {
+                Text("Сотрудников пока нет")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            ForEach(workplaces) { wp in
+                Button {
+                    searchFocused = false
+                    path.append(Route.workplace(wp.id))
+                } label: {
+                    HStack(spacing: 12) {
+                        WorkplaceRow(workplace: wp)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if wp.id != workplaces.last?.id {
+                    Divider().padding(.leading, 16)
+                }
+            }
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+    }
+
+    private var searchResults: some View {
+        VStack(spacing: 0) {
+            if searching && users.isEmpty {
+                ProgressView().frame(maxWidth: .infinity).padding()
+            } else if users.isEmpty {
+                Text("Никого не нашли")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+            ForEach(users) { user in
+                Button { open(user) } label: {
+                    UserRow(user: user)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if user.id != users.last?.id {
+                    Divider().padding(.leading, 16)
+                }
+            }
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
     }
 
     private var searchBar: some View {
