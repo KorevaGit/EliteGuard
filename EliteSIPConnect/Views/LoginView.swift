@@ -145,11 +145,6 @@ private struct LoginFieldStyle: ViewModifier {
         content
             .padding(.horizontal, 16)
             .frame(height: 54)
-            .background(Color(uiColor: .secondarySystemGroupedBackground),
-                        in: RoundedRectangle(cornerRadius: 13))
-            .overlay {
-                RoundedRectangle(cornerRadius: 13)
-                    .strokeBorder(Color(uiColor: .separator).opacity(0.45), lineWidth: 1)
-            }
+            .glassEffect(.regular, in: .rect(cornerRadius: 13))
     }
 }

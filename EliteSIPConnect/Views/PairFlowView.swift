@@ -111,7 +111,7 @@ struct PairFlowView: View {
                 Divider()
                 row("Предустановка", wp.presetName.isEmpty ? "не выбрана" : wp.presetName)
             }
-            .background(.fill.tertiary, in: .rect(cornerRadius: 14))
+            .glassEffect(.regular, in: .rect(cornerRadius: 14))
             .padding(.horizontal)
 
             Text("Сверьте код с экраном машины. После привязки она сама получит номер, SIP-пароль и настройки.")

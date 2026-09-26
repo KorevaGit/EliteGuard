@@ -29,6 +29,7 @@ struct HomeView: View {
                 if let machine = model.waitingMachine {
                     Section {
                         WaitingMachineRow(machine: machine) { model.waitingMachine = nil }
+                            .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                     }
                 }
 
@@ -42,6 +43,7 @@ struct HomeView: View {
                         ForEach(users) { user in
                             Button { open(user) } label: { UserRow(user: user) }
                                 .tint(.primary)
+                                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                         }
                     }
                 } else {
@@ -51,6 +53,7 @@ struct HomeView: View {
                         }
                         ForEach(workplaces) { wp in
                             NavigationLink(value: Route.workplace(wp.id)) { WorkplaceRow(workplace: wp) }
+                                .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                         }
                     }
                 }
@@ -135,6 +138,7 @@ struct HomeView: View {
                         } footer: {
                             Text("Введите шесть цифр с экрана EliteSIP. После проверки выберите сотрудника для привязки.")
                         }
+                        .listRowBackground(Color.clear.glassEffect(.regular, in: .rect(cornerRadius: 14)))
                         if let numberError {
                             Text(numberError).foregroundStyle(.red)
                         }
@@ -174,14 +178,14 @@ struct HomeView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 44)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: .capsule)
+            .glassEffect(.regular, in: .capsule)
             if searchFocused {
                 Button("Готово") { searchFocused = false }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Color(uiColor: .systemGroupedBackground).opacity(0.7))
     }
 
     private func open(_ user: BitrixUser) {
