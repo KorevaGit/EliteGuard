@@ -41,13 +41,49 @@ struct Workplace: Decodable, Identifiable, Hashable, Sendable {
     let lagging: Int
     let lastSeenAt: Date?
     let appVersion: String
+    let sipPassword: String?
+    let note: String?
+    let lines: [WorkplaceLine]?
 
     var fullName: String { [lastName, firstName].filter { !$0.isEmpty }.joined(separator: " ") }
 
     enum CodingKeys: String, CodingKey {
         case id, bitrixUserId, firstName, lastName, label, workFormat, presetId, presetName
-        case machines, lagging, lastSeenAt, appVersion
+        case machines, lagging, lastSeenAt, appVersion, sipPassword, note, lines
         case extension_ = "extension"
+    }
+}
+
+struct WorkplaceLine: Codable, Hashable, Sendable {
+    let id: Int
+    let extension_: String
+    let label: String
+    let sipPassword: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, sipPassword
+        case extension_ = "extension"
+    }
+}
+
+struct WorkplaceLineDraft: Identifiable {
+    let id = UUID()
+    var serverID = 0
+    var extensionNumber = ""
+    var label = ""
+    var sipPassword = ""
+
+    init(_ line: WorkplaceLine? = nil) {
+        if let line {
+            serverID = line.id
+            extensionNumber = line.extension_
+            label = line.label
+            sipPassword = line.sipPassword
+        }
+    }
+
+    var input: WorkplaceLine {
+        WorkplaceLine(id: serverID, extension_: extensionNumber, label: label, sipPassword: sipPassword)
     }
 }
 
@@ -102,6 +138,28 @@ struct WorkplaceInput: Encodable, Sendable {
     var workFormat: String
     var presetId: Int?
     var note: String = ""
+    var firstName: String = ""
+    var lastName: String = ""
+    var extension_: String = ""
+    var lines: [WorkplaceLine] = []
+
+    enum CodingKeys: String, CodingKey {
+        case bitrixUserId, label, sipPassword, workFormat, presetId, note, firstName, lastName, lines
+        case extension_ = "extension"
+    }
+}
+
+struct WorkplaceUpdateResult: Decodable, Sendable {
+    let workplace: Workplace
+    let pushed: Int
+    let legacy: Int
+    let warning: String?
+}
+
+struct WorkplacePushResult: Decodable, Sendable {
+    let pushed: Int
+    let legacy: Int
+    let warning: String?
 }
 
 struct PairPreview: Decodable, Sendable {

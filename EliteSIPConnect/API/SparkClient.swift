@@ -21,6 +21,13 @@ actor SparkClient {
     let baseURL: URL
     private let session: URLSession
     private var accessToken: String?
+    private var refreshTask: Task<RefreshResult, Never>?
+
+    private enum RefreshResult {
+        case success(String)
+        case invalid
+        case unavailable
+    }
 
     static let shared = SparkClient()
 
@@ -52,17 +59,34 @@ actor SparkClient {
     func logout() async {
         _ = try? await sendRaw("POST", "/api/auth/logout", body: Optional<Int>.none, authorized: true, retry: false)
         setToken(nil)
-        HTTPCookieStorage.shared.cookies(for: baseURL)?.forEach(HTTPCookieStorage.shared.deleteCookie)
+        let authURL = baseURL.appending(path: "api/auth")
+        HTTPCookieStorage.shared.cookies(for: authURL)?
+            .filter { $0.name == "refresh_token" }
+            .forEach(HTTPCookieStorage.shared.deleteCookie)
     }
 
-    private func refresh() async -> Bool {
-        guard let (data, status) = try? await sendRaw(
-            "POST", "/api/auth/refresh", body: [String: String](), authorized: false, retry: false),
-            status == 200,
-            let response = try? Self.decoder.decode(LoginResponse.self, from: data)
-        else { return false }
-        setToken(response.accessToken)
-        return true
+    private func refresh() async -> RefreshResult {
+        if let refreshTask { return await refreshTask.value }
+        let task = Task { await performRefresh() }
+        refreshTask = task
+        let result = await task.value
+        if case .success(let token) = result { setToken(token) }
+        refreshTask = nil
+        return result
+    }
+
+    private func performRefresh() async -> RefreshResult {
+        do {
+            let (data, status) = try await sendRaw(
+                "POST", "/api/auth/refresh", body: [String: String](), authorized: false, retry: false)
+            if status == 401 || status == 403 { return .invalid }
+            guard status == 200,
+                  let response = try? Self.decoder.decode(LoginResponse.self, from: data)
+            else { return .unavailable }
+            return .success(response.accessToken)
+        } catch {
+            return .unavailable
+        }
     }
 
     private func setToken(_ token: String?) {
@@ -94,6 +118,14 @@ actor SparkClient {
 
     func createWorkplace(_ input: WorkplaceInput) async throws -> Workplace {
         try await send("POST", "/api/elitesip/workplaces", body: input)
+    }
+
+    func updateWorkplace(_ id: Int, input: WorkplaceInput) async throws -> WorkplaceUpdateResult {
+        try await send("PUT", "/api/elitesip/workplaces/\(id)", body: input)
+    }
+
+    func pushWorkplace(_ id: Int) async throws -> WorkplacePushResult {
+        try await send("POST", "/api/elitesip/workplaces/\(id)/push", body: Optional<Int>.none)
     }
 
     func revokeMachine(_ machineID: Int) async throws {
@@ -165,8 +197,9 @@ actor SparkClient {
             request.httpBody = try Self.encoder.encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        if authorized, let accessToken {
-            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        let requestToken = authorized ? accessToken : nil
+        if let requestToken {
+            request.setValue("Bearer \(requestToken)", forHTTPHeaderField: "Authorization")
         }
         let data: Data
         let response: URLResponse
@@ -177,9 +210,19 @@ actor SparkClient {
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401, authorized, retry {
-            if await refresh() {
+            if accessToken != nil, accessToken != requestToken {
                 return try await sendRaw(method, path, body: body, authorized: authorized, retry: false)
             }
+            switch await refresh() {
+            case .success:
+                return try await sendRaw(method, path, body: body, authorized: authorized, retry: false)
+            case .invalid:
+                if accessToken == requestToken { setToken(nil) }
+            case .unavailable:
+                throw SparkError.transport("Не удалось продлить сессию. Проверьте соединение и повторите попытку.")
+            }
+        }
+        if status == 401, authorized, !retry, accessToken == requestToken {
             setToken(nil)
         }
         return (data, status)

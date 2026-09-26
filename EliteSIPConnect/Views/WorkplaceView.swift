@@ -5,6 +5,8 @@ struct WorkplaceView: View {
     @Environment(AppModel.self) private var model
     @State private var detail: WorkplaceDetail?
     @State private var revoking: Machine?
+    @State private var editing = false
+    @State private var pushing = false
 
     var body: some View {
         List {
@@ -17,6 +19,16 @@ struct WorkplaceView: View {
                     LabeledContent("Предустановка", value: wp.presetName.isEmpty ? "не выбрана" : wp.presetName)
                 } footer: {
                     Text("Правки в Spark уезжают на машины сотрудника сами — в течение 15 минут.")
+                }
+
+                Section {
+                    Button("Изменить сотрудника", systemImage: "square.and.pencil") { editing = true }
+                    if detail.machines.contains(where: { $0.state != "revoked" }) {
+                        Button("Отправить настройки заново", systemImage: "paperplane") {
+                            Task { await push() }
+                        }
+                        .disabled(pushing)
+                    }
                 }
 
                 if let conflicts = detail.conflicts, !conflicts.isEmpty {
@@ -68,6 +80,18 @@ struct WorkplaceView: View {
         .onChange(of: model.pairRequest == nil) { _, closed in
             if closed { Task { await load() } }
         }
+        .sheet(isPresented: $editing) {
+            if let detail {
+                NavigationStack {
+                    EditWorkplaceView(workplace: detail.workplace) { result in
+                        editing = false
+                        Task { await load() }
+                        model.alert = result.warning ??
+                            (result.pushed > 0 ? "Сохранено и отправлено на \(result.pushed) машин" : "Сохранено")
+                    }
+                }
+            }
+        }
         .confirmationDialog(
             "Отвязать машину?",
             isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } }),
@@ -93,6 +117,141 @@ struct WorkplaceView: View {
             try await model.client.revokeMachine(machine.id)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             await load()
+        } catch {
+            model.handle(error)
+        }
+    }
+
+    private func push() async {
+        pushing = true
+        defer { pushing = false }
+        do {
+            let result = try await model.client.pushWorkplace(id)
+            model.alert = result.warning ?? "Настройки отправлены на \(result.pushed) машин"
+            await load()
+        } catch {
+            model.handle(error)
+        }
+    }
+}
+
+struct EditWorkplaceView: View {
+    let workplace: Workplace
+    let saved: (WorkplaceUpdateResult) -> Void
+
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var firstName: String
+    @State private var lastName: String
+    @State private var extensionNumber: String
+    @State private var label: String
+    @State private var sipPassword: String
+    @State private var remote: Bool
+    @State private var presetID: Int?
+    @State private var presets: [Preset] = []
+    @State private var lines: [WorkplaceLineDraft]
+    @State private var busy = false
+
+    init(workplace: Workplace, saved: @escaping (WorkplaceUpdateResult) -> Void) {
+        self.workplace = workplace
+        self.saved = saved
+        _firstName = State(initialValue: workplace.firstName)
+        _lastName = State(initialValue: workplace.lastName)
+        _extensionNumber = State(initialValue: workplace.extension_)
+        _label = State(initialValue: workplace.label)
+        _sipPassword = State(initialValue: workplace.sipPassword ?? "")
+        _remote = State(initialValue: workplace.workFormat == "remote")
+        _presetID = State(initialValue: workplace.presetId)
+        _lines = State(initialValue: (workplace.lines ?? []).map(WorkplaceLineDraft.init))
+    }
+
+    var body: some View {
+        Form {
+            if workplace.bitrixUserId == 0 {
+                Section("Сотрудник") {
+                    TextField("Фамилия", text: $lastName)
+                    TextField("Имя", text: $firstName)
+                    TextField("Добавочный", text: $extensionNumber).keyboardType(.numberPad)
+                }
+            } else {
+                Section {
+                    LabeledContent("Имя", value: workplace.fullName)
+                    LabeledContent("Добавочный", value: workplace.extension_)
+                } header: {
+                    Text("Сотрудник из Битрикса")
+                } footer: {
+                    Text("Имя и номер берутся из Битрикса.")
+                }
+            }
+            Section("Настройки") {
+                TextField("Подпись профиля", text: $label)
+                SecureField("SIP-пароль", text: $sipPassword)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Picker("Формат", selection: $remote) {
+                    Text("Офис").tag(false)
+                    Text("Удалёнка").tag(true)
+                }
+                .pickerStyle(.segmented)
+                Picker("Предустановка", selection: $presetID) {
+                    Text("Не выбрана").tag(Int?.none)
+                    ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
+                }
+            }
+            if workplace.bitrixUserId == 0 {
+                Section("Дополнительные номера") {
+                    ForEach($lines) { $line in
+                        VStack(alignment: .leading) {
+                            TextField("Добавочный", text: $line.extensionNumber).keyboardType(.numberPad)
+                            TextField("Подпись", text: $line.label)
+                            SecureField("SIP-пароль", text: $line.sipPassword)
+                        }
+                    }
+                    .onDelete { lines.remove(atOffsets: $0) }
+                    if lines.count < 8 {
+                        Button("Добавить номер", systemImage: "plus") {
+                            lines.append(WorkplaceLineDraft())
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Изменить сотрудника")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Отмена") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Сохранить") { Task { await save() } }
+                    .disabled(busy || sipPassword.isEmpty ||
+                              (workplace.bitrixUserId == 0 &&
+                               ((firstName.isEmpty && lastName.isEmpty) || extensionNumber.isEmpty ||
+                                lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
+            }
+        }
+        .task {
+            do { presets = try await model.client.presets() }
+            catch { model.handle(error) }
+        }
+    }
+
+    private func save() async {
+        busy = true
+        defer { busy = false }
+        do {
+            var input = WorkplaceInput(
+                bitrixUserId: workplace.bitrixUserId,
+                label: label.trimmingCharacters(in: .whitespacesAndNewlines),
+                sipPassword: sipPassword,
+                workFormat: remote ? "remote" : "office",
+                presetId: presetID)
+            input.firstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            input.lastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+            input.extension_ = extensionNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            input.note = workplace.note ?? ""
+            input.lines = lines.map(\.input)
+            saved(try await model.client.updateWorkplace(workplace.id, input: input))
         } catch {
             model.handle(error)
         }

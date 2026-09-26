@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Route: Hashable {
     case workplace(Int)
-    case create(BitrixUser)
+    case create(BitrixUser?)
 }
 
 struct HomeView: View {
@@ -37,7 +37,7 @@ struct HomeView: View {
                         }
                     }
                 } else {
-                    Section("Рабочие места") {
+                    Section {
                         if loading && workplaces.isEmpty {
                             ProgressView().frame(maxWidth: .infinity)
                         }
@@ -47,7 +47,8 @@ struct HomeView: View {
                     }
                 }
             }
-            .navigationTitle("EliteSIP")
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Фамилия, имя или добавочный")
             .task(id: query) { await search() }
             .task { await loadWorkplaces() }
@@ -76,7 +77,12 @@ struct HomeView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
+                    HStack {
+                        Button("Добавить сотрудника", systemImage: "person.badge.plus") {
+                            path.append(Route.create(nil))
+                        }
+                        Button("Сканировать", systemImage: "qrcode.viewfinder") { scanning = true }
+                    }
                 }
             }
             .sheet(isPresented: $scanning) {
