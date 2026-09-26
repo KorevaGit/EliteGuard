@@ -17,41 +17,59 @@ struct WorkplaceView: View {
             if let detail {
                 let wp = detail.workplace
                 Section {
-                    LabeledContent("Добавочный", value: wp.extension_)
-                    LabeledContent("Подпись", value: wp.label)
-                    LabeledContent("Формат", value: wp.workFormat == "remote" ? "Удалёнка" : "Офис")
-                    LabeledContent("Предустановка", value: wp.presetName.isEmpty ? "не выбрана" : wp.presetName)
+                    GlassGroup {
+                        GlassRow { LabeledContent("Добавочный", value: wp.extension_) }
+                        GlassDivider()
+                        GlassRow { LabeledContent("Подпись", value: wp.label) }
+                        GlassDivider()
+                        GlassRow { LabeledContent("Формат", value: wp.workFormat == "remote" ? "Удалёнка" : "Офис") }
+                        GlassDivider()
+                        GlassRow { LabeledContent("Предустановка", value: wp.presetName.isEmpty ? "не выбрана" : wp.presetName) }
+                    }
                 } footer: {
                     Text("Правки в Spark уезжают на машины сотрудника сами — в течение 15 минут.")
                 }
 
                 Section {
-                    Button("Изменить сотрудника", systemImage: "square.and.pencil") { editing = true }
-                    if detail.machines.contains(where: { $0.state != "revoked" }) {
-                        Button("Отправить настройки заново", systemImage: "paperplane") {
-                            Task { await push() }
+                    GlassGroup {
+                        GlassRow { Button("Изменить сотрудника", systemImage: "square.and.pencil") { editing = true } }
+                        if detail.machines.contains(where: { $0.state != "revoked" }) {
+                            GlassDivider()
+                            GlassRow {
+                                Button("Отправить настройки заново", systemImage: "paperplane") {
+                                    Task { await push() }
+                                }
+                                .disabled(pushing)
+                            }
                         }
-                        .disabled(pushing)
                     }
                 }
 
                 if let conflicts = detail.conflicts, !conflicts.isEmpty {
                     Section {
-                        Label("На этом добавочном уже работают: \(conflicts.joined(separator: ", "))",
-                              systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
+                        GlassGroup {
+                            GlassRow {
+                                Label("На этом добавочном уже работают: \(conflicts.joined(separator: ", "))",
+                                      systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                     }
                 }
 
                 Section {
-                    Button {
-                        model.bind(to: wp)
-                    } label: {
-                        Label(model.waitingMachine == nil ? "Привязать машину" : "Привязать ждущую машину",
-                              systemImage: "qrcode.viewfinder")
-                            .bold()
+                    GlassGroup {
+                        GlassRow {
+                            Button {
+                                model.bind(to: wp)
+                            } label: {
+                                Label(model.waitingMachine == nil ? "Привязать машину" : "Привязать ждущую машину",
+                                      systemImage: "qrcode.viewfinder")
+                                    .bold()
+                            }
+                            .disabled(wp.presetId == nil || wp.extension_.isEmpty || !(detail.conflicts ?? []).isEmpty)
+                        }
                     }
-                    .disabled(wp.presetId == nil || wp.extension_.isEmpty || !(detail.conflicts ?? []).isEmpty)
                 } footer: {
                     if !(detail.conflicts ?? []).isEmpty {
                         Text("Этот номер уже занят. Устраните конфликт перед привязкой машины.")
@@ -67,33 +85,42 @@ struct WorkplaceView: View {
                 }
 
                 Section("Машины") {
-                    if detail.machines.isEmpty {
-                        Text("Машин пока нет").foregroundStyle(.secondary)
-                    }
-                    ForEach(detail.machines) { machine in
-                        VStack(alignment: .leading, spacing: 8) {
-                            MachineRow(machine: machine)
-                            if machine.state != "revoked" {
-                                Button("Отвязать машину", systemImage: "link.badge.minus", role: .destructive) {
-                                    revoking = machine
+                    GlassGroup {
+                        if detail.machines.isEmpty {
+                            GlassRow { Text("Машин пока нет").foregroundStyle(.secondary) }
+                        }
+                        ForEach(detail.machines) { machine in
+                            GlassRow {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    MachineRow(machine: machine)
+                                    if machine.state != "revoked" {
+                                        Button("Отвязать машину", systemImage: "link.badge.minus", role: .destructive) {
+                                            revoking = machine
+                                        }
+                                        .font(.subheadline)
+                                        .buttonStyle(.borderless)
+                                    }
                                 }
-                                .font(.subheadline)
-                                .buttonStyle(.borderless)
                             }
+                            if machine.id != detail.machines.last?.id { GlassDivider() }
                         }
                     }
                 }
 
                 Section {
-                    Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
-                        confirmDelete = true
-                    }
-                    .foregroundStyle(detail.machines.contains { $0.state != "revoked" } ? .gray : .red)
-                    .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
-                    .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
-                        Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
-                    } message: {
-                        Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+                    GlassGroup {
+                        GlassRow {
+                            Button("Удалить пользователя", systemImage: "trash", role: .destructive) {
+                                confirmDelete = true
+                            }
+                            .foregroundStyle(detail.machines.contains { $0.state != "revoked" } ? .gray : .red)
+                            .disabled(deleting || detail.machines.contains { $0.state != "revoked" })
+                            .confirmationDialog("Удалить пользователя из EliteSIP?", isPresented: $confirmDelete) {
+                                Button("Удалить пользователя", role: .destructive) { Task { await remove() } }
+                            } message: {
+                                Text("Профиль и его настройки будут удалены. Пользователь Битрикса останется в Битриксе.")
+                            }
+                        }
                     }
                 } footer: {
                     if detail.machines.contains(where: { $0.state != "revoked" }) {
@@ -212,13 +239,19 @@ struct EditWorkplaceView: View {
         Form {
             if workplace.bitrixUserId == 0 {
                 Section("Имя Фамилия") {
-                    TextField("Имя", text: $firstName)
-                    TextField("Фамилия", text: $lastName)
+                    GlassGroup {
+                        GlassRow { TextField("Имя", text: $firstName) }
+                        GlassDivider()
+                        GlassRow { TextField("Фамилия", text: $lastName) }
+                    }
                 }
             } else {
                 Section {
-                    LabeledContent("Имя", value: workplace.fullName)
-                    LabeledContent("Добавочный", value: workplace.extension_)
+                    GlassGroup {
+                        GlassRow { LabeledContent("Имя", value: workplace.fullName) }
+                        GlassDivider()
+                        GlassRow { LabeledContent("Добавочный", value: workplace.extension_) }
+                    }
                 } header: {
                     Text("Сотрудник из Битрикса")
                 } footer: {
@@ -226,36 +259,61 @@ struct EditWorkplaceView: View {
                 }
             }
             Section("Настройки") {
-                if workplace.bitrixUserId == 0 {
-                    TextField("Номер", text: $extensionNumber).keyboardType(.numberPad)
-                }
-                TextField("Подпись", text: $label)
-                SecureField("SIP-пароль", text: $sipPassword)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Picker("Формат", selection: $remote) {
-                    Text("Офис").tag(false)
-                    Text("Удалёнка").tag(true)
-                }
-                .pickerStyle(.segmented)
-                Picker("Предустановка", selection: $presetID) {
-                    Text("Не выбрана").tag(Int?.none)
-                    ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
+                GlassGroup {
+                    if workplace.bitrixUserId == 0 {
+                        GlassRow { TextField("Номер", text: $extensionNumber).keyboardType(.numberPad) }
+                        GlassDivider()
+                    }
+                    GlassRow { TextField("Подпись", text: $label) }
+                    GlassDivider()
+                    GlassRow {
+                        SecureField("SIP-пароль", text: $sipPassword)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    GlassDivider()
+                    GlassRow {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Формат").font(.subheadline).foregroundStyle(.secondary)
+                            Picker("Формат", selection: $remote) {
+                                Text("Офис").tag(false)
+                                Text("Удалёнка").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                        }
+                    }
+                    GlassDivider()
+                    GlassRow {
+                        Picker("Предустановка", selection: $presetID) {
+                            Text("Не выбрана").tag(Int?.none)
+                            ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                    }
                 }
             }
             if workplace.bitrixUserId == 0 {
                 Section("Дополнительные номера") {
-                    ForEach($lines) { $line in
-                        VStack(alignment: .leading) {
-                            TextField("Добавочный", text: $line.extensionNumber).keyboardType(.numberPad)
-                            TextField("Подпись", text: $line.label)
-                            SecureField("SIP-пароль", text: $line.sipPassword)
+                    GlassGroup {
+                        ForEach($lines) { $line in
+                            GlassRow {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    TextField("Добавочный", text: $line.extensionNumber).keyboardType(.numberPad)
+                                    TextField("Подпись", text: $line.label)
+                                    SecureField("SIP-пароль", text: $line.sipPassword)
+                                    Button("Удалить номер", systemImage: "trash", role: .destructive) {
+                                        lines.removeAll { $0.id == line.id }
+                                    }
+                                }
+                            }
+                            GlassDivider()
                         }
-                    }
-                    .onDelete { lines.remove(atOffsets: $0) }
-                    if lines.count < 8 {
-                        Button("Добавить номер", systemImage: "plus") {
-                            lines.append(WorkplaceLineDraft())
+                        if lines.count < 8 {
+                            GlassRow {
+                                Button("Добавить номер", systemImage: "plus") {
+                                    lines.append(WorkplaceLineDraft())
+                                }
+                            }
                         }
                     }
                 }

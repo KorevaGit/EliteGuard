@@ -22,74 +22,112 @@ struct CreateWorkplaceView: View {
         Form {
             if let user {
                 Section("Сотрудник из Битрикса") {
-                    LabeledContent("Имя", value: user.fullName)
-                    LabeledContent("Добавочный", value: user.callNumber.isEmpty ? "не указан" : user.callNumber)
+                    GlassGroup {
+                        GlassRow { LabeledContent("Имя", value: user.fullName) }
+                        GlassDivider()
+                        GlassRow { LabeledContent("Добавочный", value: user.callNumber.isEmpty ? "не указан" : user.callNumber) }
+                    }
                 }
                 if user.callNumber.isEmpty {
                     Section {
-                        Label("Без номера из Битрикса машина не сможет работать", systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
+                        GlassGroup {
+                            GlassRow {
+                                Label("Без номера из Битрикса машина не сможет работать", systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                     }
                 }
             } else {
                 Section("Имя Фамилия") {
-                    TextField("Имя", text: $firstName)
-                    TextField("Фамилия", text: $lastName)
+                    GlassGroup {
+                        GlassRow { TextField("Имя", text: $firstName) }
+                        GlassDivider()
+                        GlassRow { TextField("Фамилия", text: $lastName) }
+                    }
                 }
             }
 
             Section("Настройки") {
-                if user == nil {
-                    TextField("Номер", text: $extensionNumber)
-                        .keyboardType(.numberPad)
-                }
-                TextField("Подпись", text: $label)
-                SecureField("SIP-пароль", text: $sipPassword)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Picker("Формат", selection: $remote) {
-                    Text("Офис").tag(false)
-                    Text("Удалёнка").tag(true)
-                }
-                .pickerStyle(.segmented)
-                Picker("Предустановка", selection: $presetID) {
-                    Text("Не выбрана").tag(Int?.none)
-                    ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
+                GlassGroup {
+                    if user == nil {
+                        GlassRow { TextField("Номер", text: $extensionNumber).keyboardType(.numberPad) }
+                        GlassDivider()
+                    }
+                    GlassRow { TextField("Подпись", text: $label) }
+                    GlassDivider()
+                    GlassRow {
+                        SecureField("SIP-пароль", text: $sipPassword)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    GlassDivider()
+                    GlassRow {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Формат").font(.subheadline).foregroundStyle(.secondary)
+                            Picker("Формат", selection: $remote) {
+                                Text("Офис").tag(false)
+                                Text("Удалёнка").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                        }
+                    }
+                    GlassDivider()
+                    GlassRow {
+                        Picker("Предустановка", selection: $presetID) {
+                            Text("Не выбрана").tag(Int?.none)
+                            ForEach(presets) { Text($0.name).tag(Optional($0.id)) }
+                        }
+                    }
                 }
             }
 
             if user == nil {
                 Section("Дополнительные номера") {
-                    ForEach($lines) { $line in
-                        VStack(alignment: .leading) {
-                            TextField("Добавочный", text: $line.extensionNumber).keyboardType(.numberPad)
-                            TextField("Подпись", text: $line.label)
-                            SecureField("SIP-пароль", text: $line.sipPassword)
+                    GlassGroup {
+                        ForEach($lines) { $line in
+                            GlassRow {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    TextField("Добавочный", text: $line.extensionNumber).keyboardType(.numberPad)
+                                    TextField("Подпись", text: $line.label)
+                                    SecureField("SIP-пароль", text: $line.sipPassword)
+                                    Button("Удалить номер", systemImage: "trash", role: .destructive) {
+                                        lines.removeAll { $0.id == line.id }
+                                    }
+                                }
+                            }
+                            GlassDivider()
                         }
-                    }
-                    .onDelete { lines.remove(atOffsets: $0) }
-                    if lines.count < 8 {
-                        Button("Добавить номер", systemImage: "plus") {
-                            lines.append(WorkplaceLineDraft())
+                        if lines.count < 8 {
+                            GlassRow {
+                                Button("Добавить номер", systemImage: "plus") {
+                                    lines.append(WorkplaceLineDraft())
+                                }
+                            }
                         }
                     }
                 }
             }
 
             Section {
-                Button {
-                    Task { await create() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        if busy { ProgressView() } else { Text("Создать профиль").bold() }
-                        Spacer()
+                GlassGroup {
+                    GlassRow {
+                        Button {
+                            Task { await create() }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                if busy { ProgressView() } else { Text("Создать профиль").bold() }
+                                Spacer()
+                            }
+                        }
+                        .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                  (user == nil && ((firstName.isEmpty && lastName.isEmpty) ||
+                                                   extensionNumber.isEmpty || !extensionNumber.allSatisfy(\.isNumber) ||
+                                                   lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
                     }
                 }
-                .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                          (user == nil && ((firstName.isEmpty && lastName.isEmpty) ||
-                                           extensionNumber.isEmpty || !extensionNumber.allSatisfy(\.isNumber) ||
-                                           lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
             }
         }
         .navigationTitle(user == nil ? "Ручной профиль" : "Новый сотрудник")
