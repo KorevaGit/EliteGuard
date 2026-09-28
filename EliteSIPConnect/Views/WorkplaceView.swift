@@ -243,6 +243,8 @@ struct EditWorkplaceView: View {
     @State private var extensionNumber: String
     @State private var label: String
     @State private var sipPassword: String
+    @State private var useStandardPassword: Bool
+    @State private var standardAvailable = false
     @State private var remote: Bool
     @State private var presetID: Int?
     @State private var presets: [Preset] = []
@@ -257,6 +259,7 @@ struct EditWorkplaceView: View {
         _extensionNumber = State(initialValue: workplace.extension_)
         _label = State(initialValue: workplace.label)
         _sipPassword = State(initialValue: workplace.sipPassword ?? "")
+        _useStandardPassword = State(initialValue: workplace.sipPasswordSource == "standard")
         _remote = State(initialValue: workplace.workFormat == "remote")
         _presetID = State(initialValue: workplace.presetId)
         _lines = State(initialValue: (workplace.lines ?? []).map(WorkplaceLineDraft.init))
@@ -294,9 +297,19 @@ struct EditWorkplaceView: View {
                     GlassRow { TextField("Подпись", text: $label) }
                     GlassDivider()
                     GlassRow {
-                        SecureField("SIP-пароль", text: $sipPassword)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                        Picker("SIP-пароль", selection: $useStandardPassword) {
+                            Text("Из FreePBX").tag(true)
+                            Text("Ручной").tag(false)
+                        }
+                        .disabled(!standardAvailable)
+                    }
+                    if !useStandardPassword {
+                        GlassDivider()
+                        GlassRow {
+                            SecureField("SIP-пароль", text: $sipPassword)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
                     }
                     GlassDivider()
                     GlassRow {
@@ -357,14 +370,20 @@ struct EditWorkplaceView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Сохранить") { Task { await save() } }
-                    .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                    .disabled(busy || (useStandardPassword && !standardAvailable) || (!useStandardPassword && sipPassword.isEmpty) || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                               (workplace.bitrixUserId == 0 &&
                                ((firstName.isEmpty && lastName.isEmpty) || extensionNumber.isEmpty ||
                                 lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
             }
         }
         .task {
-            do { presets = try await model.client.presets() }
+            do {
+                async let loadedPresets = model.client.presets()
+                async let loadedDefaults = model.client.staffDefaults()
+                presets = try await loadedPresets
+                let defaults = try await loadedDefaults
+                standardAvailable = defaults.standardPasswordSource == "freepbx"
+            }
             catch { model.handle(error) }
         }
     }
@@ -376,10 +395,11 @@ struct EditWorkplaceView: View {
             var input = WorkplaceInput(
                 bitrixUserId: workplace.bitrixUserId,
                 label: label.trimmingCharacters(in: .whitespacesAndNewlines),
-                sipPassword: sipPassword,
+                sipPassword: useStandardPassword ? "" : sipPassword,
                 workFormat: remote ? "remote" : "office",
                 presetId: presetID)
             input.firstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            input.sipPasswordSource = useStandardPassword ? "standard" : "manual"
             input.lastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
             input.extension_ = extensionNumber.trimmingCharacters(in: .whitespacesAndNewlines)
             input.note = workplace.note ?? ""

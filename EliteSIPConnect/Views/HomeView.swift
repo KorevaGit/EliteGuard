@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var machineNumber = ""
     @State private var checkingNumber = false
     @State private var numberError: String?
+    @State private var editingDefaults = false
     @FocusState private var searchFocused: Bool
 
     private var normalizedNumber: String { machineNumber.filter(\.isNumber) }
@@ -97,6 +98,13 @@ struct HomeView: View {
                                 .offset(y: 2)
                         }
                         .accessibilityLabel("Ручной профиль")
+                        Button {
+                            editingDefaults = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("Стандартные настройки")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -119,6 +127,11 @@ struct HomeView: View {
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) { Button("Отмена") { scanning = false } }
                     }
+                }
+            }
+            .sheet(isPresented: $editingDefaults) {
+                NavigationStack {
+                    StaffDefaultsView()
                 }
             }
             .sheet(isPresented: $enteringNumber) {

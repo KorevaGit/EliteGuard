@@ -14,6 +14,12 @@ struct ItemsResponse<T: Decodable & Sendable>: Decodable, Sendable {
     let items: [T]
 }
 
+struct StaffDefaults: Codable, Sendable {
+    var presetId: Int?
+    var sipPassword: String
+    var standardPasswordSource: String? = nil
+}
+
 struct BitrixUser: Decodable, Identifiable, Hashable, Sendable {
     let userId: Int
     let firstName: String
@@ -42,6 +48,7 @@ struct Workplace: Decodable, Identifiable, Hashable, Sendable {
     let lastSeenAt: Date?
     let appVersion: String
     let sipPassword: String?
+    let sipPasswordSource: String?
     let note: String?
     let lines: [WorkplaceLine]?
 
@@ -49,7 +56,7 @@ struct Workplace: Decodable, Identifiable, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, bitrixUserId, firstName, lastName, label, workFormat, presetId, presetName
-        case machines, lagging, lastSeenAt, appVersion, sipPassword, note, lines
+        case machines, lagging, lastSeenAt, appVersion, sipPassword, sipPasswordSource, note, lines
         case extension_ = "extension"
     }
 }
@@ -135,6 +142,7 @@ struct WorkplaceInput: Encodable, Sendable {
     var bitrixUserId: Int
     var label: String
     var sipPassword: String
+    var sipPasswordSource: String = "manual"
     var workFormat: String
     var presetId: Int?
     var note: String = ""
@@ -144,7 +152,7 @@ struct WorkplaceInput: Encodable, Sendable {
     var lines: [WorkplaceLine] = []
 
     enum CodingKeys: String, CodingKey {
-        case bitrixUserId, label, sipPassword, workFormat, presetId, note, firstName, lastName, lines
+        case bitrixUserId, label, sipPassword, sipPasswordSource, workFormat, presetId, note, firstName, lastName, lines
         case extension_ = "extension"
     }
 }

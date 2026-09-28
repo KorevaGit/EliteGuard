@@ -107,6 +107,14 @@ actor SparkClient {
         return r.items
     }
 
+    func staffDefaults() async throws -> StaffDefaults {
+        try await send("GET", "/api/elitesip/staff-defaults")
+    }
+
+    func saveStaffDefaults(_ defaults: StaffDefaults) async throws -> StaffDefaults {
+        try await send("PUT", "/api/elitesip/staff-defaults", body: defaults)
+    }
+
     func workplace(_ id: Int) async throws -> WorkplaceDetail {
         try await send("GET", "/api/elitesip/workplaces/\(id)")
     }

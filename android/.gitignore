@@ -1,0 +1,10 @@
+.gradle/
+.idea/
+local.properties
+build/
+app/build/
+*.iml
+EliteGuard.apk
+EliteGuard-release.apk
+signing.properties
+signing/

@@ -12,6 +12,8 @@ struct CreateWorkplaceView: View {
     @State private var extensionNumber = ""
     @State private var label = ""
     @State private var sipPassword = ""
+    @State private var useStandardPassword = true
+    @State private var standardAvailable = false
     @State private var remote = false
     @State private var presetID: Int?
     @State private var presets: [Preset] = []
@@ -57,9 +59,19 @@ struct CreateWorkplaceView: View {
                     GlassRow { TextField("Подпись", text: $label) }
                     GlassDivider()
                     GlassRow {
-                        SecureField("SIP-пароль", text: $sipPassword)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                        Picker("SIP-пароль", selection: $useStandardPassword) {
+                            Text("Стандартный · FreePBX").tag(true)
+                            Text("Ручной").tag(false)
+                        }
+                        .disabled(!standardAvailable)
+                    }
+                    if !useStandardPassword {
+                        GlassDivider()
+                        GlassRow {
+                            SecureField("SIP-пароль", text: $sipPassword)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
                     }
                     GlassDivider()
                     GlassRow {
@@ -122,7 +134,7 @@ struct CreateWorkplaceView: View {
                                 Spacer()
                             }
                         }
-                        .disabled(busy || sipPassword.isEmpty || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                        .disabled(busy || (useStandardPassword && !standardAvailable) || (!useStandardPassword && sipPassword.isEmpty) || label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                                   (user == nil && ((firstName.isEmpty && lastName.isEmpty) ||
                                                    extensionNumber.isEmpty || !extensionNumber.allSatisfy(\.isNumber) ||
                                                    lines.contains { $0.extensionNumber.isEmpty || $0.sipPassword.isEmpty })))
@@ -140,8 +152,13 @@ struct CreateWorkplaceView: View {
         }
         .task {
             do {
-                presets = try await model.client.presets()
-                if presets.count == 1 { presetID = presets[0].id }
+                async let loadedPresets = model.client.presets()
+                async let loadedDefaults = model.client.staffDefaults()
+                presets = try await loadedPresets
+                let defaults = try await loadedDefaults
+                standardAvailable = defaults.standardPasswordSource == "freepbx"
+                useStandardPassword = standardAvailable
+                presetID = defaults.presetId
             } catch {
                 model.handle(error)
             }
@@ -155,10 +172,11 @@ struct CreateWorkplaceView: View {
             var input = WorkplaceInput(
                 bitrixUserId: user?.userId ?? 0,
                 label: label.trimmingCharacters(in: .whitespacesAndNewlines),
-                sipPassword: sipPassword,
+                sipPassword: useStandardPassword ? "" : sipPassword,
                 workFormat: remote ? "remote" : "office",
                 presetId: presetID)
             input.firstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            input.sipPasswordSource = useStandardPassword ? "standard" : "manual"
             input.lastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
             input.extension_ = extensionNumber.trimmingCharacters(in: .whitespacesAndNewlines)
             input.lines = lines.map(\.input)
